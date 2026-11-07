@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MPMC Arduino Lab Simulator</title>
+<style>
+:root{
+  --bg:#0a0f15; --panel:#111922; --panel2:#16212c; --line:#223142; --text:#e7edf4; --muted:#8a9bb0;
+  --teal:#00979c; --teal2:#19c6cb; --orange:#f0882a; --red:#ff5a5f; --green:#3fd07a; --yellow:#ffd54a;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  --lh: 20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Arabic",Tahoma,sans-serif;font-size:14px}
+body{min-height:100vh;background:
+  radial-gradient(1200px 600px at 85% -10%, rgba(0,151,156,.16), transparent 60%),
+  radial-gradient(900px 500px at -10% 110%, rgba(240,136,42,.10), transparent 60%), var(--bg)}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:7px 12px;transition:.15s}
+button:hover{border-color:var(--teal);background:#1a2a36}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:linear-gradient(180deg,#14b3b8,#00878c);border-color:#0aa;color:#fff;font-weight:600}
+button.primary:hover{filter:brightness(1.1)}
+button.ghost{background:transparent}
+button.tiny{padding:3px 9px;font-size:12px;border-radius:7px}
+select{background:#0d151d;border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.hidden{display:none!important}
+.muted{color:var(--muted);font-weight:400}
+.ar{font-family:"Noto Sans Arabic",Tahoma,system-ui,sans-serif}
+
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;padding:10px 18px;border-bottom:1px solid var(--line);background:rgba(10,15,21,.85);backdrop-filter:blur(10px)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#00979c,#0b5f8a);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 6px 18px rgba(0,151,156,.35)}
+.brand b{display:block;font-size:16px;letter-spacing:.2px}
+.brand span{font-size:12px;color:var(--muted)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.timer{font-family:var(--mono);font-size:18px;font-weight:700;padding:5px 12px;border-radius:9px;background:#2a1414;border:1px solid #6b2a2a;color:#ffb4b4}
+.timer.ok{background:#102a1c;border-color:#245c3c;color:#9ff0c0}
+
+main{display:grid;grid-template-columns:250px minmax(0,1.08fr) minmax(0,1fr);gap:14px;padding:14px 18px 30px;align-items:start}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 40%),var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.card-title{display:flex;align-items:center;gap:8px;font-weight:650;margin-bottom:10px;font-size:13.5px}
+.card-title.small{font-size:12px;margin:8px 0 6px;color:var(--muted);font-weight:500}
+.spacer{flex:1}
+.pill{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;background:#1c2733;color:var(--muted);border:1px solid var(--line)}
+.pill.run{background:#0f2d22;color:#7ff0b2;border-color:#23573f}
+
+/* task list */
+aside{position:sticky;top:76px}
+main>section,main>aside{min-width:0}
+.tasks-h{font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin:2px 4px 10px}
+.task{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:11px;border:1px solid transparent;cursor:pointer;margin-bottom:4px;transition:.12s}
+.task:hover{background:#121c26;border-color:var(--line)}
+.task.active{background:linear-gradient(90deg,rgba(0,151,156,.22),rgba(0,151,156,.05));border-color:#11686c}
+.task .n{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:12px;background:#1a2632;color:#9fb3c8}
+.task.active .n{background:var(--teal);color:#fff}
+.task.done .n{background:#1c5a3a;color:#bff5d6}
+.task .t{font-weight:600;font-size:13px;line-height:1.25}
+.task .a{font-size:12px;color:var(--muted);margin-top:2px}
+.task .lock{font-size:11px;color:#ffb4b4}
+
+/* task card */
+.task-head{display:flex;gap:12px;align-items:center}
+.task-head .num{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:18px;font-weight:800;background:linear-gradient(135deg,#00979c,#0b5f8a)}
+.task-head h2{margin:0;font-size:18px}
+.task-head .ar{color:var(--teal2);font-size:14px;margin-top:2px;text-align:left}
+.goal{margin:12px 0 6px;line-height:1.5}
+.test{margin:0 0 10px;color:var(--muted);line-height:1.5}
+.warnbox{margin:8px 0;padding:8px 10px;border-radius:9px;background:#2b2010;border:1px solid #6a4a16;color:#ffd99a;font-size:13px}
+.steps{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+.step{flex:1;min-width:120px;font-size:12px;padding:8px 10px;border-radius:10px;background:#0d151d;border:1px solid var(--line);color:#b8c6d6}
+.step b{color:var(--teal2);margin-right:4px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+
+/* bench */
+#bench{width:100%;height:auto;display:block;border-radius:12px;background:#0d151d;touch-action:none;user-select:none}
+.inputs{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.ictl{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;background:#0d151d;border:1px solid var(--line);flex:1;min-width:220px}
+.ictl input[type=range]{flex:1;accent-color:var(--teal)}
+.ictl .val{font-family:var(--mono);min-width:44px;text-align:right;color:var(--teal2)}
+.hold{font-weight:700;padding:10px 16px;background:linear-gradient(180deg,#2b3440,#1b222b);border-color:#3a4654;user-select:none;touch-action:none}
+.hold.down{background:linear-gradient(180deg,#00979c,#006c70);border-color:#0cc;color:#fff;transform:translateY(1px)}
+#plot{width:100%;height:90px;display:block;border-radius:10px;background:#0b1218;border:1px solid var(--line)}
+.wave{opacity:0}
+.wave.on{animation:wv .5s infinite}
+@keyframes wv{0%{opacity:.15}50%{opacity:1}100%{opacity:.15}}
+.btnhit{cursor:pointer}
+.knob{cursor:grab}
+
+/* wiring */
+.wrow{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:10px 0;border-top:1px dashed var(--line)}
+.wrow:first-child{border-top:0}
+.wname{display:flex;align-items:center;gap:8px;font-weight:650}
+.wname .dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 10px currentColor}
+.wfields{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center}
+.wfields label{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#b8c6d6}
+.wfields .note{font-size:12px;color:var(--muted)}
+.burnt{color:#ffb4b4;font-size:12.5px;font-weight:600}
+#wireReport{margin-top:10px}
+.rep{padding:7px 10px;border-radius:9px;margin-top:6px;font-size:13px;line-height:1.45}
+.rep.good{background:#0f2a1d;border:1px solid #1f5a3c;color:#b9f3d3}
+.rep.bad{background:#2c1214;border:1px solid #6b2a2e;color:#ffc1c4}
+.rep.note{background:#2b2210;border:1px solid #6a5216;color:#ffe2a6}
+
+/* IDE */
+.ide{padding:0;overflow:hidden}
+.ide-bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#006468;border-bottom:1px solid #00585c}
+.ide-bar .ib{width:34px;height:34px;padding:0;border-radius:50%;display:grid;place-items:center;background:#00979c;border:0;color:#063437;font-weight:900;font-size:15px}
+.ide-bar .ib:hover{background:#7fe3e6}
+.ide-bar .ib.stop{background:#f1a43a}
+.ide-bar .lbl{color:#cff;font-size:12.5px;margin-left:6px}
+.ide-bar .right{margin-left:auto;display:flex;gap:6px}
+.ide-bar .right button{background:rgba(0,0,0,.18);border-color:rgba(255,255,255,.18);color:#e8ffff;padding:5px 10px;font-size:12.5px}
+.tabname{background:#0f171f;padding:0 10px;border-bottom:1px solid var(--line)}
+.tabname span{display:inline-block;padding:7px 14px;background:#16212c;border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;font-size:12.5px;margin-top:6px;color:#cfe}
+.editor{display:flex;height:360px;background:#0e161e;position:relative}
+.gutter{flex:none;width:44px;padding:10px 0;text-align:right;color:#4b5d70;font-family:var(--mono);font-size:13px;line-height:var(--lh);overflow:hidden;background:#0b1218;border-right:1px solid #18242f;user-select:none}
+.gutter div{padding-right:8px;height:var(--lh)}
+.gutter div.err{background:#5b1b20;color:#ffd2d4}
+.code-wrap{position:relative;flex:1;overflow:hidden}
+#hl,#code{position:absolute;inset:0;margin:0;padding:10px 12px;font-family:var(--mono);font-size:13px;line-height:var(--lh);white-space:pre;tab-size:2;border:0;overflow:auto}
+#hl{pointer-events:none;color:#d7e3ee;overflow:hidden}
+#code{background:transparent;color:transparent;caret-color:#fff;resize:none;outline:none}
+#code::selection{background:rgba(25,198,203,.3);color:transparent}
+.errband{position:absolute;left:0;right:0;height:var(--lh);background:rgba(255,80,90,.16);border-left:3px solid var(--red);pointer-events:none}
+.c-kw{color:#4fd1d6}.c-fn{color:#f39c4a}.c-const{color:#5ab4ff}.c-com{color:#6f8296;font-style:italic}.c-str{color:#9fdc7c}.c-num{color:#d6a7ff}.c-pre{color:#c2a4ff}
+.statusbar{background:#00979c;color:#fff;padding:5px 12px;font-size:12.5px;font-weight:600;min-height:26px}
+.statusbar.err{background:#c0392b}
+.statusbar.warn{background:#b7791f}
+.console{background:#050708;color:#e6e6e6;font-family:var(--mono);font-size:12.5px;line-height:1.5;padding:8px 12px;height:130px;overflow:auto;white-space:pre-wrap}
+.console .err{color:#ff8a5c}.console .ok{color:#8be9b3}.console .warn{color:#ffd66b}.console .info{color:#9fb3c8}
+.serial pre{margin:0;height:150px;overflow:auto;background:#05090c;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-family:var(--mono);font-size:12.5px;color:#cfe9ff;white-space:pre-wrap}
+.serial label{font-size:12px;color:var(--muted);display:flex;gap:5px;align-items:center}
+
+/* modal */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(3,6,10,.7);display:grid;place-items:center;padding:20px;backdrop-filter:blur(3px)}
+.modal-box{width:min(1000px,100%);max-height:92vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.modal-head{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:2}
+.modal-head h3{margin:0;font-size:16px}
+.modal-head button{margin-left:auto}
+.modal-body{padding:16px}
+.paper{background:#fbfaf5;border-radius:12px;padding:10px;border:1px solid #d9d4c4}
+.paper svg{width:100%;height:auto;display:block}
+.how{margin:12px 0 0;padding-left:20px;line-height:1.6;color:#c9d6e3}
+.solcode{background:#0e161e;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:13px;line-height:1.55;white-space:pre;overflow:auto}
+.mbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+@media (max-width:1250px){
+  main{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  aside{grid-column:1/-1;position:static}
+  #taskList{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  .task{min-width:190px}
+}
+@media (max-width:860px){
+  main{grid-template-columns:minmax(0,1fr);padding:10px}
+  .editor{height:320px}
+  header{flex-wrap:wrap}
+  .wrow{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo"><svg width="26" height="16" viewBox="0 0 52 30"><path d="M14 4a11 11 0 1 0 0 22c7 0 11-11 12-11s5 11 12 11a11 11 0 1 0 0-22C31 4 27 15 26 15S21 4 14 4z" fill="none" stroke="#fff" stroke-width="4"/><path d="M8 15h10M40 10v10M35 15h10" stroke="#fff" stroke-width="3"/></svg></div>
+    <div><b>MPMC Lab Simulator</b><span>Arduino practice bench · <span class="ar">محاكي تجارب الأردوينو</span></span></div>
+  </div>
+  <div class="hdr-right">
+    <span id="visits" class="pill hidden" title="How many times this simulator was opened"></span>
+    <label class="muted" style="display:flex;gap:6px;align-items:center">Board
+      <select id="boardSel"><option value="mega">Arduino Mega 2560</option><option value="uno">Arduino Uno</option></select></label>
+    <button id="soundBtn" class="ghost">🔊 Sound on</button>
+    <div id="examTimer" class="timer hidden">15:00</div>
+    <button id="examBtn" class="primary">🎓 Exam mode</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="tasks-h">Experiments · التجارب</div>
+    <div id="taskList"></div>
+  </aside>
+
+  <section>
+    <div class="card">
+      <div class="task-head"><div class="num" id="tNum">1</div><div><h2 id="tTitle"></h2><div class="ar" id="tAr" dir="rtl"></div></div></div>
+      <p class="goal" id="tGoal"></p>
+      <p class="test" id="tTest"></p>
+      <div id="tWarn"></div>
+      <div class="steps">
+        <div class="step"><b>1</b>Draw the diagram on paper</div>
+        <div class="step"><b>2</b>Wire it below ↓</div>
+        <div class="step"><b>3</b>Write the code →</div>
+        <div class="step"><b>4</b>Upload ▶ and test</div>
+      </div>
+      <div class="btnrow">
+        <button id="diagBtn">📐 Circuit diagram</button>
+        <button id="checkBtn">✅ Check wiring</button>
+        <button id="autoBtn" class="ghost">⚡ Auto-wire</button>
+        <button id="clearBtn" class="ghost">✕ Unplug all</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Bench <span id="benchStatus" class="pill">Not running</span><span class="spacer"></span><span class="muted" style="font-size:12px" id="boardName"></span></div>
+      <svg id="bench" viewBox="0 0 800 440" aria-label="Arduino and breadboard"></svg>
+      <div id="inputs" class="inputs"></div>
+      <div class="card-title small">Pin plotter: what the pins output over the last 6 s (0 = OFF, 255 = full)</div>
+      <canvas id="plot"></canvas>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Wiring <span class="muted">— choose where every leg goes · <span class="ar">التوصيل</span></span></div>
+      <div id="wiring"></div>
+      <div id="wireReport"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card ide">
+      <div class="ide-bar">
+        <button class="ib" id="verifyBtn" title="Verify (compile)">✓</button>
+        <button class="ib" id="uploadBtn" title="Upload & run (Ctrl+Enter)">➜</button>
+        <button class="ib stop" id="stopBtn" title="Stop">■</button>
+        <span class="lbl" id="ideLbl">Verify · Upload · Stop</span>
+        <div class="right">
+          <button id="resetCodeBtn" title="Start from an empty sketch">↺ New sketch</button>
+          <button id="solBtn">💡 Solution</button>
+        </div>
+      </div>
+      <div class="tabname"><span id="sketchName">sketch_exam.ino</span></div>
+      <div class="editor">
+        <div class="gutter" id="gutter"></div>
+        <div class="code-wrap" id="codeWrap">
+          <pre id="hl" aria-hidden="true"></pre>
+          <div class="errband hidden" id="errband"></div>
+          <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off"></textarea>
+        </div>
+      </div>
+      <div class="statusbar" id="statusBar">Ready</div>
+      <div class="console" id="console"></div>
+    </div>
+
+    <div class="card serial">
+      <div class="card-title">Serial Monitor <span class="muted" id="baud">9600 baud</span><span class="spacer"></span>
+        <label><input type="checkbox" id="autoscroll" checked> Autoscroll</label>
+        <button id="serialClear" class="tiny">Clear</button></div>
+      <pre id="serialOut"></pre>
+    </div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden"><div class="modal-box"><div class="modal-head"><h3 id="modalTitle"></h3><button id="modalClose" class="tiny">✕ Close</button></div><div class="modal-body" id="modalBody"></div></div></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem('mpmcsim:'+k); return v==null?d:JSON.parse(v);}catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('mpmcsim:'+k, JSON.stringify(v)); }catch(e){} }
+};
+
+/* ---------------- boards & tasks ---------------- */
+const BOARDS = {
+  mega:{name:'Arduino Mega 2560', label:'MEGA 2560', pwm:new Set([2,3,4,5,6,7,8,9,10,11,12,13,44,45,46]), A0:54},
+  uno:{name:'Arduino Uno', label:'UNO', pwm:new Set([3,5,6,9,10,11]), A0:14}
+};
+let boardKey = store.get('board','mega'); if(!BOARDS[boardKey]) boardKey='mega';
+
+const EMPTY = 'void setup() {\n  // put your setup code here, to run once:\n\n}\n\nvoid loop() {\n  // put your main code here, to run repeatedly:\n\n}\n';
+const LEDC = {red:'#ff3b30', green:'#2ee66b', yellow:'#ffd60a', blue:'#3aa0ff'};
+const CNAME = {red:'Red', green:'Green', yellow:'Yellow', blue:'Blue'};
+
+const TASKS = [
+{id:'blink', title:'Blink an LED', ar:'وميض الليد كل ثانية',
+ goal:'The LED on pin 13 turns ON for 1 second, then OFF for 1 second, forever.',
+ test:'Upload and watch the LED (and the small “L” LED on the board) blink once per second.',
+ comps:[{type:'led', id:'led', color:'red', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(13, HIGH);   // LED on
+  delay(1000);
+  digitalWrite(13, LOW);    // LED off
+  delay(1000);
+}
+`},
+{id:'button', title:'Button controls LED', ar:'الزر يتحكم بالليد',
+ goal:'The LED on pin 13 is ON only while the push button on pin 8 is pressed.',
+ test:'Hold the button (click & hold it on the bench, the “Hold button” control, or the Space key). Release: the LED must turn off.',
+ comps:[{type:'button', id:'btn', pin:8},{type:'led', id:'led', color:'red', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);   // LED
+  pinMode(8, INPUT);     // button
+}
+
+void loop() {
+  if (digitalRead(8) == HIGH) {   // pressed
+    digitalWrite(13, HIGH);
+  } else {
+    digitalWrite(13, LOW);
+  }
+}
+`},
+{id:'fade', title:'Fade an LED (PWM)', ar:'تدريج سطوع الليد (PWM)', pwm:true,
+ goal:'The LED on pin 13 smoothly gets brighter (0 → 255) then dimmer (255 → 0), forever.',
+ test:'Watch the LED breathe and look at the pin plotter: it draws the same wave the teacher drew on the board.',
+ comps:[{type:'led', id:'led', color:'green', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);
+}
+
+void loop() {
+  for (int i = 0; i <= 255; i++) {   // brighter
+    analogWrite(13, i);
+    delay(10);
+  }
+  for (int i = 255; i >= 0; i--) {   // dimmer
+    analogWrite(13, i);
+    delay(10);
+  }
+}
+`},
+{id:'buttonfade', title:'Fade when button pressed', ar:'تجربة اليوم: تدريج السطوع عند ضغط الزر', pwm:true,
+ goal:'Today’s lab: when the button on pin 8 is pressed, the LED on pin 13 fades in and then out. When it is not pressed, nothing happens.',
+ test:'Hold the button: one full fade takes about 5 s (256 steps × 10 ms × 2). Release it mid-fade: the fade still finishes.',
+ comps:[{type:'button', id:'btn', pin:8},{type:'led', id:'led', color:'green', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);   // LED
+  pinMode(8, INPUT);     // button
+}
+
+void loop() {
+  if (digitalRead(8) == HIGH) {        // button pressed?
+    for (int i = 0; i <= 255; i++) {   // fade in
+      analogWrite(13, i);
+      delay(10);
+    }
+    for (int i = 255; i >= 0; i--) {   // fade out
+      analogWrite(13, i);
+      delay(10);
+    }
+  }
+}
+`},
+{id:'pot', title:'Potentiometer → brightness', ar:'المقاومة المتغيرة تتحكم بالسطوع', pwm:true,
+ goal:'Turning the potentiometer on A0 changes the brightness of the LED on pin 13. Print the reading to the Serial Monitor.',
+ test:'Drag the knob (or the slider). 0 → LED off, 1023 → full brightness. The Serial Monitor shows 0 … 1023.',
+ comps:[{type:'pot', id:'pot', apin:0},{type:'led', id:'led', color:'red', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int val = analogRead(A0);                    // 0 .. 1023
+  int brightness = map(val, 0, 1023, 0, 255);  // 0 .. 255
+  analogWrite(13, brightness);
+  Serial.println(val);
+  delay(50);
+}
+`},
+{id:'potspeed', title:'Potentiometer → blink speed', ar:'المقاومة المتغيرة تتحكم بسرعة الوميض',
+ goal:'The LED on pin 13 blinks; the potentiometer on A0 sets how fast (the reading is used as the delay in ms).',
+ test:'Turn the knob down → fast blinking. Turn it up → slow blinking (up to ~1 s).',
+ comps:[{type:'pot', id:'pot', apin:0},{type:'led', id:'led', color:'red', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);
+}
+
+void loop() {
+  int val = analogRead(A0);   // 0 .. 1023
+  digitalWrite(13, HIGH);
+  delay(val);
+  digitalWrite(13, LOW);
+  delay(val);
+}
+`},
+{id:'buzzer', title:'Buzzer with button', ar:'البازر مع الزر',
+ goal:'The buzzer on pin 9 beeps (1000 Hz) while the button on pin 8 is pressed.',
+ test:'Hold the button: you should hear a beep and see sound waves. Turn on sound in the header if you hear nothing.',
+ comps:[{type:'button', id:'btn', pin:8},{type:'buzzer', id:'bz', pin:9}],
+ solution:`void setup() {
+  pinMode(9, OUTPUT);   // buzzer
+  pinMode(8, INPUT);    // button
+}
+
+void loop() {
+  if (digitalRead(8) == HIGH) {
+    tone(9, 1000);      // 1000 Hz beep
+  } else {
+    noTone(9);
+  }
+}
+`},
+{id:'toggle', title:'Toggle LED with button', ar:'ضغطة تشغّل وضغطة تطفي',
+ goal:'Press the button once → the LED on pin 13 stays ON. Press again → it turns OFF.',
+ test:'Click the button (press and release). The LED must change state on each press, not stay on only while held.',
+ comps:[{type:'button', id:'btn', pin:8},{type:'led', id:'led', color:'yellow', pin:13}],
+ solution:`int ledState = LOW;
+int lastButton = LOW;
+
+void setup() {
+  pinMode(13, OUTPUT);
+  pinMode(8, INPUT);
+}
+
+void loop() {
+  int b = digitalRead(8);
+  if (b == HIGH && lastButton == LOW) {   // just pressed
+    ledState = !ledState;
+    digitalWrite(13, ledState);
+    delay(50);                            // debounce
+  }
+  lastButton = b;
+}
+`},
+{id:'traffic', title:'Traffic light', ar:'إشارة المرور',
+ goal:'Red LED on pin 12 for 3 s, then yellow on pin 11 for 1 s, then green on pin 10 for 3 s, repeat. Each LED has its own 220Ω.',
+ test:'Watch the three LEDs take turns. Only one should be ON at a time.',
+ comps:[{type:'led', id:'r', color:'red', pin:12},{type:'led', id:'y', color:'yellow', pin:11},{type:'led', id:'g', color:'green', pin:10}],
+ solution:`void setup() {
+  pinMode(12, OUTPUT);   // red
+  pinMode(11, OUTPUT);   // yellow
+  pinMode(10, OUTPUT);   // green
+}
+
+void loop() {
+  digitalWrite(12, HIGH); delay(3000); digitalWrite(12, LOW);  // red
+  digitalWrite(11, HIGH); delay(1000); digitalWrite(11, LOW);  // yellow
+  digitalWrite(10, HIGH); delay(3000); digitalWrite(10, LOW);  // green
+}
+`},
+{id:'ldr', title:'LDR night light', ar:'مقاومة ضوئية: الليد يشتغل بالعتمة',
+ goal:'The LED on pin 13 turns ON when the room is dark. The LDR (light sensor) is on A0 with a 10kΩ to GND.',
+ test:'Drag “Room light” down → the room gets dark and the LED must turn on. Check the readings in the Serial Monitor.',
+ comps:[{type:'ldr', id:'ldr', apin:0},{type:'led', id:'led', color:'yellow', pin:13}],
+ solution:`void setup() {
+  pinMode(13, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  int light = analogRead(A0);
+  Serial.println(light);          // check the real values first
+  if (light < 400) {              // dark → adjust 400 to your room
+    digitalWrite(13, HIGH);
+  } else {
+    digitalWrite(13, LOW);
+  }
+  delay(100);
+}
+`}
+];
+
+/* ---------------- state ---------------- */
+let task = TASKS.find(t=>t.id===store.get('task','buttonfade')) || TASKS[0];
+let wiring = store.get('wiring', {});
+let done = new Set(store.get('done', []));
+let soundOn = store.get('sound', true);
+const exam = {active:false, end:0, timerId:null};
+
+function compName(c){
+  if(c.type==='led') return CNAME[c.color]+' LED';
+  return {button:'Push button', pot:'Potentiometer', buzzer:'Buzzer', ldr:'LDR (light sensor)'}[c.type];
+}
+function compColor(c){ return c.type==='led'?LEDC[c.color]:{button:'#9fb3c8',pot:'#3a7bff',buzzer:'#cfcfcf',ldr:'#f0a050'}[c.type]; }
+function defaultWire(c){
+  switch(c.type){
+    case 'led': return {pin:'', res:'none', dir:'ok'};
+    case 'button': return {pin:'', to:'5V', pd:'none'};
+    case 'pot': return {apin:'', legs:'ok'};
+    case 'buzzer': return {pin:''};
+    case 'ldr': return {apin:'', res:'none'};
+  }
+}
+function expectedPin(c){ return (boardKey==='uno' && task.pwm && c.pin===13) ? 9 : c.pin; }
+function correctWire(c){
+  switch(c.type){
+    case 'led': return {pin:String(expectedPin(c)), res:'220', dir:'ok'};
+    case 'button': return {pin:String(c.pin), to:'5V', pd:'10k'};
+    case 'pot': return {apin:String(c.apin), legs:'ok'};
+    case 'buzzer': return {pin:String(c.pin)};
+    case 'ldr': return {apin:String(c.apin), res:'10k'};
+  }
+}
+function getW(c){
+  wiring[task.id] = wiring[task.id] || {};
+  if(!wiring[task.id][c.id]) wiring[task.id][c.id] = defaultWire(c);
+  return wiring[task.id][c.id];
+}
+function saveWiring(){ store.set('wiring', wiring); }
+
+/* ---------------- simulator runtime ---------------- */
+const STOP = {stop:true};
+const sim = { running:false, stop:true, gen:0, modes:{}, dig:{}, pwm:{}, tone:null, serialOn:false, t0:0,
+  timers:new Set(), pressed:{}, pot:{}, light:70, burned:{}, used:new Set(), lastUsed:null, hints:new Set(),
+  floatState:{}, afloat:{}, ticks:0, serialBuf:'', txFlash:0, ranOnce:false };
+
+function rtReset(){ sim.modes={}; sim.dig={}; sim.pwm={}; sim.tone=null; sim.serialOn=false; sim.used=new Set(); sim.ticks=0; sim.hints=new Set(); }
+function hint(key, text){ if(sim.hints.has(key)) return; sim.hints.add(key); log(text,'warn'); }
+function findComp(type, pred){ for(const c of task.comps){ if(c.type!==type) continue; const w=getW(c); if(pred(w)) return {c,w}; } return null; }
+const clamp=(x,a,b)=>x<a?a:(x>b?b:x);
+
+function readDigital(p){
+  if(sim.modes[p]===1) return sim.dig[p]?1:0;
+  const b = findComp('button', w=>w.pin===String(p));
+  if(b){
+    const w=b.w;
+    if(sim.pressed[b.c.id]) return w.to==='5V'?1:0;
+    if(w.pd!=='none') return 0;
+    if(sim.modes[p]===2) return 1;
+    hint('float'+p, `⚠ Pin ${p} is floating: there is no pull-down resistor, so when the button is released the reading is random (the LED flickers). Add the 10kΩ from pin ${p} to GND.`);
+    return floating(p);
+  }
+  if(sim.modes[p]===2) return 1;
+  hint('nothing'+p, `⚠ digitalRead(${p}): nothing is wired to pin ${p}. Check the wiring panel or the pin number in your code.`);
+  return floating(p);
+}
+function floating(p){
+  const now=performance.now(); let s=sim.floatState[p];
+  if(!s || now-s.t>s.d){ s={t:now, d:40+Math.random()*160, v:Math.random()<0.5?0:1}; sim.floatState[p]=s; }
+  return s.v;
+}
+function floatingAnalog(ch){ let v=sim.afloat[ch] ?? 500; v=clamp(v+(Math.random()*60-30),250,780); sim.afloat[ch]=v; return Math.round(v); }
+function ldrRes(light){ return 200000*Math.pow(1/200, light/100); }
+function readAnalog(p){
+  p=Number(p); const A0=BOARDS[boardKey].A0; const ch = p>=A0 ? p-A0 : p;
+  sim.used.add('A'+ch);
+  const pot = findComp('pot', w=>w.apin===String(ch));
+  if(pot){
+    if(pot.w.legs!=='ok'){ hint('potlegs','⚠ The potentiometer’s outer legs are not connected to 5V and GND, so the middle leg reads noise.'); return floatingAnalog(ch); }
+    const v = sim.pot[pot.c.id] ?? 512; return clamp(Math.round(v + (Math.random()*2-1)),0,1023);
+  }
+  const l = findComp('ldr', w=>w.apin===String(ch));
+  if(l){
+    if(l.w.res==='none'){ hint('ldrres','⚠ The LDR has no resistor to GND, so A'+ch+' is pulled to 5V and always reads ~1023. Add the 10kΩ from A'+ch+' to GND.'); return 1022+Math.round(Math.random()); }
+    const R=ldrRes(sim.light), Rf = l.w.res==='10k'?10000:220;
+    return clamp(Math.round(1023*Rf/(Rf+R) + (Math.random()*4-2)),0,1023);
+  }
+  hint('afloat'+ch, `⚠ analogRead(A${ch}): nothing is wired to A${ch}, so the value is random noise.`);
+  return floatingAnalog(ch);
+}
+function sleep(ms, g){
+  return new Promise((res,rej)=>{
+    if(sim.stop || g!==sim.gen) return rej(STOP);
+    const t={rej}; sim.ticks=0;
+    t.id=setTimeout(()=>{ sim.timers.delete(t); if(sim.stop || g!==sim.gen) rej(STOP); else res(); }, Math.max(0, Number(ms)||0));
+    sim.timers.add(t);
+  });
+}
+function makeTick(g){
+  return async function tick(){
+    if(sim.stop || g!==sim.gen) throw STOP;
+    if(++sim.ticks>=300){ sim.ticks=0; await new Promise(r=>setTimeout(r,0)); if(sim.stop || g!==sim.gen) throw STOP; }
+  };
+}
+function fmt(x,f){
+  if(typeof x==='boolean') return x?'1':'0';
+  if(typeof x==='number'){
+    if(f===16 && Number.isInteger(x)) return (x>>>0).toString(16).toUpperCase();
+    if(f===2 && Number.isInteger(x)) return (x>>>0).toString(2);
+    if(f===8 && Number.isInteger(x)) return (x>>>0).toString(8);
+    if(f!==undefined && f!==10 && !Number.isInteger(x)) return x.toFixed(f);
+    return Number.isInteger(x) ? String(x) : x.toFixed(2);
+  }
+  return String(x);
+}
+function serialWrite(s){
+  if(!sim.serialOn){ hint('noserial','⚠ Serial.print is used but Serial.begin(9600) was never called in setup(), so nothing is sent to the Serial Monitor.'); return; }
+  sim.serialBuf += s; sim.txFlash = performance.now();
+}
+function pinNum(p){ return Number(p); }
+function makeAPI(g){
+  const A0=BOARDS[boardKey].A0;
+  const live=()=>{ if(g!==undefined && g!==sim.gen) throw STOP; };
+  const api = {
+    HIGH:1, LOW:0, INPUT:0, OUTPUT:1, INPUT_PULLUP:2, LED_BUILTIN:13, DEC:10, HEX:16, OCT:8, BIN:2, PI:Math.PI, NULL:0,
+    pinMode(p,m){ live(); p=pinNum(p); sim.modes[p]=m; sim.used.add(p); },
+    digitalWrite(p,v){ live(); p=pinNum(p); sim.used.add(p); sim.pwm[p]=null; sim.dig[p]= v?1:0; },
+    digitalRead(p){ live(); p=pinNum(p); sim.used.add(p); return readDigital(p); },
+    analogWrite(p,v){
+      live(); p=pinNum(p); sim.used.add(p); sim.modes[p]=1; v=clamp(Math.trunc(Number(v)||0),0,255);
+      if(BOARDS[boardKey].pwm.has(p)){
+        if(v===0){ sim.pwm[p]=null; sim.dig[p]=0; } else if(v===255){ sim.pwm[p]=null; sim.dig[p]=1; } else { sim.pwm[p]=v; sim.dig[p]=0; }
+      } else {
+        sim.pwm[p]=null; sim.dig[p]= v>=128?1:0;
+        hint('nopwm'+p, `⚠ analogWrite(${p}, …): pin ${p} is NOT a PWM pin on the ${BOARDS[boardKey].name}, so it can only be fully ON (≥128) or OFF. `+(boardKey==='uno'?'On the Uno use pin 3, 5, 6, 9, 10 or 11 (marked ~).':'On the Mega use pins 2–13.'));
+      }
+    },
+    analogRead(p){ live(); return readAnalog(p); },
+    delay(ms){ return sleep(ms,g); }, delayMicroseconds(us){ return sleep(us/1000,g); },
+    millis(){ return Math.floor(performance.now()-sim.t0); }, micros(){ return Math.floor((performance.now()-sim.t0)*1000); },
+    map(x,a,b,c,d){ return Math.trunc((x-a)*(d-c)/(b-a)+c); },
+    constrain(x,a,b){ return clamp(x,a,b); },
+    min:Math.min, max:Math.max, abs:Math.abs, pow:Math.pow, sqrt:Math.sqrt, sin:Math.sin, cos:Math.cos, tan:Math.tan, round:Math.round, floor:Math.floor, ceil:Math.ceil,
+    random(a,b){ if(b===undefined){ b=a; a=0; } return Math.floor(Math.random()*(b-a))+a; }, randomSeed(){},
+    tone(p,f,d){ live(); p=pinNum(p); sim.used.add(p); sim.modes[p]=1; sim.tone={pin:p, f:Number(f)||0, until: d? performance.now()+Number(d) : Infinity}; },
+    noTone(p){ p=pinNum(p); if(sim.tone && sim.tone.pin===p) sim.tone=null; },
+    sizeof(x){ return Array.isArray(x)? x.length : 1; },
+    F(x){ return x; }, analogReference(){},
+    Serial:{ begin(b){ sim.serialOn=true; $('#baud').textContent=(b||9600)+' baud'; },
+      print(x,f){ live(); serialWrite(fmt(x,f)); }, println(x,f){ live(); serialWrite((x===undefined?'':fmt(x,f))+'\n'); },
+      write(x){ serialWrite(typeof x==='number'?String.fromCharCode(x):String(x)); },
+      available(){ return 0; }, read(){ return -1; }, end(){ sim.serialOn=false; }, flush(){} }
+  };
+  for(let i=0;i<16;i++) api['A'+i]=A0+i;
+  return api;
+}
+const API_NAMES = Object.keys(makeAPI());
+
+/* ---------------- compiler: Arduino C++ subset -> async JS ---------------- */
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+const TYPES = '(?:unsigned\\s+long|unsigned\\s+int|unsigned\\s+char|unsigned|long\\s+long|long|int|float|double|boolean|bool|byte|char|word|short|String|uint8_t|int8_t|uint16_t|int16_t|uint32_t|int32_t|size_t)';
+const JSKW = new Set(['let','const','var','function','async','await','return','if','else','for','while','do','break','continue','switch','case','default','new','typeof','true','false','null','undefined','this','in','of','Math','Number','String','Array','Boolean','Infinity','NaN','tick','__rt','instanceof']);
+
+function stripComments(s){
+  return s.replace(/\/\*[\s\S]*?\*\//g, m=>m.replace(/[^\n]/g,' ')).replace(/\/\/[^\n]*/g, m=>' '.repeat(m.length));
+}
+function blankStrings(s){
+  return s.replace(/"(?:[^"\\\n]|\\.)*"/g, m=>'"'+' '.repeat(m.length-2)+'"').replace(/'(?:[^'\\\n]|\\.)*'/g, m=>"'"+' '.repeat(m.length-2)+"'");
+}
+function splitTop(str){
+  const out=[]; let d=0, cur='';
+  for(const ch of str){ if('([{'.includes(ch)) d++; else if(')]}'.includes(ch)) d--; if(ch===',' && d===0){ out.push(cur); cur=''; } else cur+=ch; }
+  out.push(cur); return out;
+}
+function matchFwd(s,i){ const o=s[i], c={'(':')','{':'}','[':']'}[o]; let d=0; for(let k=i;k<s.length;k++){ if(s[k]===o) d++; else if(s[k]===c){ d--; if(d===0) return k; } } return -1; }
+function matchBack(s,i){ const c=s[i], o={')':'(','}':'{',']':'['}[c]; let d=0; for(let k=i;k>=0;k--){ if(s[k]===c) d++; else if(s[k]===o){ d--; if(d===0) return k; } } return -1; }
+
+function bracketCheck(b){
+  const st=[], depthEnd=[]; let line=1, pd=0;
+  const pairs={')':'(',']':'[','}':'{'}, closeOf={'(':')','[':']','{':'}'};
+  for(let i=0;i<b.length;i++){
+    const ch=b[i];
+    if(ch==='\n'){ depthEnd.push(pd); line++; continue; }
+    if(ch==='('||ch==='['||ch==='{'){ st.push({ch,line}); if(ch!=='{') pd++; }
+    else if(ch===')'||ch===']'||ch==='}'){
+      if(ch!=='}') pd=Math.max(0,pd-1);
+      const top=st.pop();
+      if(!top) return {err:{line, text:`sketch.ino:${line}: error: expected declaration before '${ch}' token\n  → there is an extra '${ch}' on line ${line}`}};
+      if(top.ch!==pairs[ch]) return {err:{line, text:`sketch.ino:${line}: error: expected '${closeOf[top.ch]}' before '${ch}' token\n  → the '${top.ch}' opened on line ${top.line} is not closed`}};
+    }
+  }
+  depthEnd.push(pd);
+  if(st.length){ const top=st[st.length-1]; return {err:{line:top.line, text:`sketch.ino:${line}: error: expected '${closeOf[top.ch]}' at end of input\n  → the '${top.ch}' opened on line ${top.line} is never closed`}}; }
+  return {depthEnd};
+}
+function semicolonCheck(lines, depthEnd){
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim(); if(!t) continue;
+    if(t.startsWith('#')) continue;
+    if(depthEnd[i]>0) continue;
+    const last=t[t.length-1];
+    if('{};,:'.includes(last)) continue;
+    if(/^(if|else|for|while|do|switch|case|default)\b/.test(t) || /^\}\s*(else|while)\b/.test(t)) continue;
+    if(/[(&|+\-*/=<>?!%^~]$/.test(t)) continue;
+    if(/^(void|int|long|float|double|bool|boolean|byte|char|unsigned|String|word|short|static|const|uint\w*|int\w*)\b[\w\s*&\[\]]*\([^;]*\)$/.test(t)) continue;
+    let nt='end of input';
+    for(let k=i+1;k<lines.length;k++){ const u=lines[k].trim(); if(u){ nt=u[0]; break; } }
+    return {line:i+1, text:`sketch.ino:${i+1}: error: expected ';' before '${nt}' token\n  → add a ';' at the end of line ${i+1}:   ${t}`};
+  }
+  return null;
+}
+function injectTicks(s){
+  const b=blankStrings(s), edits=[]; let m;
+  const re=/\b(for|while)\s*\(/g;
+  while((m=re.exec(b))){
+    const open=m.index+m[0].length-1, close=matchFwd(b,open); if(close<0) continue;
+    if(m[1]==='while'){ // do { } while(x);  -> skip
+      let k=m.index-1; while(k>=0 && /\s/.test(b[k])) k--;
+      if(b[k]==='}'){ const ob=matchBack(b,k); let q=ob-1; while(q>=0 && /\s/.test(b[q])) q--; if(q>=1 && b.slice(q-1,q+1)==='do') continue; }
+    }
+    let j=close+1; while(j<b.length && /\s/.test(b[j])) j++;
+    if(b[j]==='{') edits.push({pos:j+1, text:' await tick();'});
+    else if(b[j]===';') edits.push({pos:j, del:1, text:'{ await tick(); }'});
+    else { let d=0, e=-1; for(let k=j;k<b.length;k++){ const ch=b[k]; if('([{'.includes(ch)) d++; else if(')]}'.includes(ch)) d--; else if(ch===';' && d===0){ e=k; break; } }
+      if(e>0){ edits.push({pos:j, text:'{ await tick(); '}); edits.push({pos:e+1, text:' }'}); } }
+  }
+  const re2=/\bdo\s*\{/g; while((m=re2.exec(b))) edits.push({pos:m.index+m[0].length, text:' await tick();'});
+  edits.sort((a,c)=>c.pos-a.pos);
+  for(const e of edits) s = s.slice(0,e.pos)+e.text+s.slice(e.pos+(e.del||0));
+  return s;
+}
+function transform(s){
+  s = s.replace(/^[ \t]*#include[^\n]*/gm, '');
+  s = s.replace(/^[ \t]*#define[ \t]+(\w+)[ \t]+([^\n]+)/gm, 'const $1 = $2;');
+  s = s.replace(/\b(\d+(?:\.\d+)?)(?:UL|ul|LL|ll|L|l|U|u)\b/g, '$1');
+  s = s.replace(/\b(\d+\.\d*|\d+)[fF]\b/g, '$1');
+  s = s.replace(new RegExp('\\(\\s*(?:const\\s+)?'+TYPES+'\\s*\\)','g'), '');
+  s = s.replace(/\b(?:int|long|byte|word)\s*\(/g, 'Math.trunc(');
+  s = s.replace(/\b(?:float|double)\s*\(/g, 'Number(');
+  s = s.replace(new RegExp('^[ \\t]*(?:void|'+TYPES+')\\s+\\w+\\s*\\([^)]*\\)\\s*;','gm'), '');
+  const fns=[];
+  s = s.replace(new RegExp('\\b(?:void|'+TYPES+')\\s+(\\w+)\\s*\\(([^)]*)\\)(\\s*)\\{','g'), (m,name,params,ws)=>{
+    fns.push(name);
+    const pt=params.trim();
+    const ps = (pt===''||pt==='void') ? '' : params.split(',').map(p=>p.replace(/\[\s*\]/g,'').trim().split(/[\s&*]+/).pop()).join(', ');
+    return `async function __FN_${name}(${ps})${ws}{`;
+  });
+  const SFX='(?:\\s*\\*\\s*|\\s+)(?=[A-Za-z_])';
+  s = s.replace(new RegExp('\\b(?:static\\s+)?const\\s+'+TYPES+SFX,'g'), 'const ');
+  s = s.replace(new RegExp('\\b(?:static|volatile)\\s+'+TYPES+SFX,'g'), 'let ');
+  s = s.replace(new RegExp('\\b'+TYPES+SFX,'g'), 'let ');
+  s = s.replace(/\b(let|const)\s+(\w+)\s*\[\s*([^\]]*)\]\s*(?:\[\s*[^\]]*\]\s*)?(=\s*(\{[^;]*\}|"[^"]*"))?/g, (m,kw,name,size,init,val)=>{
+    if(init){ if(val.startsWith('"')) return `${kw} ${name} = ${val}`; return `${kw} ${name} = ${val.replace(/\{/g,'[').replace(/\}/g,']')}`; }
+    return `${kw} ${name} = new Array(${size||0}).fill(0)`;
+  });
+  s = s.replace(/\blet\s+([^;]*);/g, (m,decl)=>'let '+splitTop(decl).map(d=>/=/.test(d)?d:d.replace(/^(\s*\w+)(\s*)$/,'$1 = 0$2')).join(',')+';');
+  const asyncNames=[...new Set([...fns,'delay','delayMicroseconds'])];
+  for(const n of asyncNames) s = s.replace(new RegExp('(^|[^\\w.$])('+n+')\\s*\\(','g'), (m,pre,name)=>pre+'await '+name+'(');
+  s = s.replace(/__FN_/g,'');
+  return {js:s, fns};
+}
+function findUndeclared(js){
+  const b = blankStrings(js).replace(/\.\s*[A-Za-z_]\w*/g,' ').replace(/\b0[xX][0-9a-fA-F]+\b|\b0[bB][01]+\b|\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,' ');
+  const declared=new Set([...API_NAMES, ...JSKW]); let m;
+  const fnRe=/function\s+(\w+)\s*\(([^)]*)\)/g;
+  while((m=fnRe.exec(b))){ declared.add(m[1]); m[2].split(',').forEach(p=>{ p=p.trim(); if(p) declared.add(p); }); }
+  const decRe=/\b(?:let|const)\s+([^;]*)/g;
+  while((m=decRe.exec(b))) splitTop(m[1]).forEach(d=>{ const mm=d.match(/^\s*([A-Za-z_]\w*)/); if(mm) declared.add(mm[1]); });
+  const idRe=/\b[A-Za-z_]\w*\b/g;
+  while((m=idRe.exec(b))) if(!declared.has(m[0])) return {name:m[0], declared};
+  return null;
+}
+function lineOf(src, word){
+  const lines=blankStrings(stripComments(src)).split('\n'), re=new RegExp('\\b'+word.replace(/[^\w]/g,'')+'\\b');
+  for(let i=0;i<lines.length;i++) if(re.test(lines[i])) return i+1;
+  return 1;
+}
+function transpile(src){
+  const warnings=[];
+  const sc=stripComments(src), b=blankStrings(sc), lines=b.split('\n');
+  for(let i=0;i<lines.length;i++){
+    const m=lines[i].match(/^\s*(Void|Int|Float|Long|Bool|Byte)\b/);
+    if(m) return {error:{line:i+1, text:`sketch.ino:${i+1}: error: '${m[1]}' does not name a type\n  → C++ is case-sensitive: write '${m[1].toLowerCase()}'`}, warnings};
+  }
+  const bc=bracketCheck(b); if(bc.err) return {error:bc.err, warnings};
+  const sem=semicolonCheck(lines, bc.depthEnd); if(sem) return {error:sem, warnings};
+  if(!/\bvoid\s+setup\s*\(/.test(b)) return {error:{line:1, text:"sketch.ino: error: undefined reference to `setup'\n  → every sketch needs   void setup() { … }"}, warnings};
+  if(!/\bvoid\s+loop\s*\(/.test(b)) return {error:{line:1, text:"sketch.ino: error: undefined reference to `loop'\n  → every sketch needs   void loop() { … }"}, warnings};
+  for(let i=0;i<lines.length;i++){
+    if(/\)\s*=(?!=)/.test(lines[i]) && !/^\s*(for|while)\b/.test(lines[i]))
+      return {error:{line:i+1, text:`sketch.ino:${i+1}: error: lvalue required as left operand of assignment\n  → '=' assigns a value. To compare inside if( ) use '=='`}, warnings};
+  }
+  for(let i=0;i<lines.length;i++){
+    if(/\b(?:if|while)\s*\((?:[^()]|\([^()]*\))*?[^=!<>+\-*/%&|^]=(?!=)/.test(lines[i]))
+      warnings.push(`sketch.ino:${i+1}: warning: suggest parentheses around assignment used as truth value\n  → inside if( ) you probably meant '==' (compare), not '=' (assign)`);
+  }
+  const tr=transform(sc);
+  const und=findUndeclared(tr.js);
+  if(und){
+    const ln=lineOf(src, und.name);
+    let sug=''; const low=und.name.toLowerCase();
+    for(const n of [...API_NAMES, ...und.declared]) if(n.toLowerCase()===low && n!==und.name){ sug=`\n  → did you mean '${n}'? (capital letters matter)`; break; }
+    if(!sug && /^(Serial)$/i.test(und.name)) sug="\n  → write 'Serial' with a capital S";
+    return {error:{line:ln, text:`sketch.ino:${ln}: error: '${und.name}' was not declared in this scope${sug}`}, warnings};
+  }
+  const userDeclared=new Set(); let m; const dre=/\b(?:let|const)\s+([A-Za-z_]\w*)|function\s+(\w+)/g;
+  while((m=dre.exec(tr.js))) userDeclared.add(m[1]||m[2]);
+  const names=API_NAMES.filter(n=>!userDeclared.has(n));
+  const js = `const {${names.join(',')}} = __rt;\n` + injectTicks(tr.js) +
+    `\nreturn { setup: typeof setup==='function'?setup:null, loop: typeof loop==='function'?loop:null };`;
+  return {js, warnings};
+}
+
+/* ---------------- console / status ---------------- */
+function log(text, cls='info'){ const c=$('#console'); const d=document.createElement('div'); d.className=cls; d.textContent=text; c.appendChild(d); c.scrollTop=c.scrollHeight; }
+function clearConsole(){ $('#console').innerHTML=''; }
+function setStatus(t, cls){ const s=$('#statusBar'); s.textContent=t; s.className='statusbar'+(cls?' '+cls:''); }
+function setBenchStatus(on){ const p=$('#benchStatus'); p.textContent= on?'● Running':'Not running'; p.className='pill'+(on?' run':''); }
+
+let errLine=null;
+function markErrorLine(n){ errLine=n; renderGutter(); positionErrBand(); }
+function compile(){
+  clearConsole(); setStatus('Compiling sketch…');
+  const r=transpile($('#code').value);
+  markErrorLine(null);
+  for(const w of r.warnings) log(w,'warn');
+  if(r.error){ log(r.error.text,'err'); markErrorLine(r.error.line); setStatus('Compilation error — see the message below','err'); return null; }
+  try{ r.factory = new AsyncFunction('__rt','tick', r.js); }
+  catch(e){ log('sketch.ino: error: '+e.message+'\n  → check brackets, semicolons and spelling','err'); setStatus('Compilation error','err'); return null; }
+  log('Done compiling. ✓','ok'); setStatus('Done compiling.');
+  return r;
+}
+function stopRun(silent){
+  sim.stop=true; sim.gen++;
+  for(const t of sim.timers){ clearTimeout(t.id); t.rej(STOP); } sim.timers.clear();
+  if(sim.running && !silent) log('Stopped.','info');
+  sim.running=false; rtReset(); setBenchStatus(false); setBuzz(0);
+}
+async function upload(){
+  ensureAudio();
+  const r=compile(); if(!r) return;
+  stopRun(true);
+  rtReset(); sim.stop=false; sim.running=true; sim.t0=performance.now(); sim.serialBuf='';
+  const gen=++sim.gen;
+  log('Uploading… Done uploading. Running on '+BOARDS[boardKey].name+'.','ok'); setStatus('Done uploading.');
+  setBenchStatus(true); sim.ranOnce=true;
+  try{
+    const tk=makeTick(gen);
+    const prog = await r.factory(makeAPI(gen), tk);
+    if(gen!==sim.gen) return;
+    await prog.setup();
+    while(!sim.stop && gen===sim.gen){ await prog.loop(); await tk(); }
+  }catch(e){
+    if(e===STOP || gen!==sim.gen) return;
+    let msg=e && e.message ? e.message : String(e), m;
+    if(e instanceof ReferenceError && (m=msg.match(/(\w+) is not defined/))) msg=`error: '${m[1]}' was not declared in this scope`;
+    else if(e instanceof TypeError && (m=msg.match(/(\S+) is not a function/))) msg=`error: '${m[1]}' is not a function — check the spelling`;
+    log('Runtime '+msg,'err'); setStatus('Error while running','err'); stopRun(true);
+  }finally{
+    if(gen===sim.gen){ sim.lastUsed=new Set(sim.used); }
+  }
+}
+
+/* ---------------- audio ---------------- */
+let actx=null, osc=null, gainN=null, buzzF=0;
+function ensureAudio(){
+  try{
+    if(!actx){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+      actx=new AC(); gainN=actx.createGain(); gainN.gain.value=0; gainN.connect(actx.destination);
+      osc=actx.createOscillator(); osc.type='square'; osc.frequency.value=440; osc.connect(gainN); osc.start(); }
+    if(actx.state==='suspended') actx.resume();
+  }catch(e){}
+}
+function setBuzz(f){
+  if(f===buzzF) return; buzzF=f; if(!actx) return;
+  try{ const on=soundOn && f>0; gainN.gain.setTargetAtTime(on?0.035:0, actx.currentTime, 0.01);
+    if(f>0) osc.frequency.setTargetAtTime(clamp(f,30,8000), actx.currentTime, 0.004); }catch(e){}
+}
+
+/* ---------------- bench drawing ---------------- */
+const DPIN_X={}; (function(){ let x=128; [13,12,11,10,9,8].forEach(p=>{DPIN_X[p]=x; x+=17;}); x+=8; [7,6,5,4,3,2,1,0].forEach(p=>{DPIN_X[p]=x; x+=17;}); })();
+const APIN_X=i=>216+i*17;
+const WIRE_COLS=['#ff8a00','#b06cff','#23c4ff','#ffe14d','#ff4fa3','#7bf06b'];
+const RES_BANDS={ '220':['#d32f2f','#d32f2f','#6d4c41'], '330':['#f57c00','#f57c00','#6d4c41'], '1k':['#6d4c41','#111','#d32f2f'], '10k':['#6d4c41','#111','#f57c00'] };
+const RES_F={'220':1,'330':0.85,'1k':0.42,'10k':0.07};
+
+function resistorV(x,y1,y2,val){
+  const L=y2-y1, by=y1+L*0.22, bh=L*0.56, bands=RES_BANDS[val]||[];
+  let s=`<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#b9b9b9" stroke-width="2"/>`;
+  s+=`<rect x="${x-6}" y="${by}" width="12" height="${bh}" rx="5" fill="#e3c98f" stroke="#b79a5c"/>`;
+  bands.forEach((c,i)=>{ s+=`<rect x="${x-6}" y="${by+5+i*7}" width="12" height="3.5" fill="${c}"/>`; });
+  s+=`<rect x="${x-6}" y="${by+bh-9}" width="12" height="3" fill="#c9a227"/>`;
+  return s;
+}
+function wirePath(d,color){ return `<path d="${d}" fill="none" stroke="rgba(0,0,0,.55)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${color}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`; }
+function jumper(d,color){ return `<path d="${d}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`; }
+function qmark(x,y){ return `<g><circle cx="${x}" cy="${y}" r="8" fill="rgba(255,255,255,.6)" stroke="#e05555" stroke-dasharray="3 2" stroke-width="1.5"/><text x="${x}" y="${y+3.5}" font-size="10" text-anchor="middle" fill="#c03030" font-weight="700">?</text></g>`; }
+function digWire(p, tx, ty, color, viaX){
+  const px=DPIN_X[p]; if(px===undefined) return '';
+  if(viaX!==undefined) return wirePath(`M${px},66 C${px},8 ${viaX},8 ${viaX},96 L${viaX},${ty} L${tx},${ty}`, color);
+  return wirePath(`M${px},66 C${px},8 ${tx},8 ${tx},${ty}`, color);
+}
+function anaWire(ch, tx, ty, color, viaX){
+  const ax=APIN_X(Number(ch)), vx= viaX===undefined?tx:viaX;
+  return wirePath(`M${ax},318 C${ax},436 ${vx},436 ${vx},336 L${vx},${ty} L${tx},${ty}`, color);
+}
+
+function renderBench(){
+  const B=BOARDS[boardKey]; const comps=task.comps; const N=comps.length;
+  let base='', wires='', parts='', glow='';
+  const defs=`<defs>
+    <pattern id="holes" width="12" height="12" patternUnits="userSpaceOnUse"><rect x="4.5" y="4.5" width="3" height="3" rx=".6" fill="#cfc8b6"/></pattern>
+    <linearGradient id="pcb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${boardKey==='mega'?'#1a7cc0':'#1b86a8'}"/><stop offset="1" stop-color="${boardKey==='mega'?'#0b5c96':'#0d6684'}"/></linearGradient>
+    ${Object.entries(LEDC).map(([k,c])=>`<radialGradient id="glow-${k}"><stop offset="0" stop-color="${c}" stop-opacity=".95"/><stop offset=".35" stop-color="${c}" stop-opacity=".45"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`).join('')}
+  </defs>`;
+  // breadboard
+  base+=`<rect x="384" y="28" width="406" height="382" rx="10" fill="#f3efe4" stroke="#d8d0bd"/>`;
+  base+=`<line x1="398" y1="37" x2="776" y2="37" stroke="#e53935" stroke-width="2"/><text x="391" y="51" font-size="11" fill="#e53935" font-weight="700">+</text>`;
+  base+=`<rect x="398" y="41" width="378" height="12" fill="url(#holes)"/>`;
+  base+=`<rect x="398" y="384" width="378" height="12" fill="url(#holes)"/>`;
+  base+=`<line x1="398" y1="401" x2="776" y2="401" stroke="#1e63d6" stroke-width="2"/><text x="390" y="395" font-size="12" fill="#1e63d6" font-weight="700">−</text>`;
+  base+=`<rect x="398" y="62" width="378" height="150" fill="url(#holes)"/><rect x="398" y="226" width="378" height="150" fill="url(#holes)"/>`;
+  base+=`<rect x="392" y="214" width="390" height="10" rx="3" fill="#e2dccb"/>`;
+  base+=`<text x="770" y="34" font-size="8" text-anchor="end" fill="#b04040">5V rail</text><text x="770" y="409" font-size="8" text-anchor="end" fill="#3a63b0">GND rail</text>`;
+  // arduino
+  base+=`<rect x="0" y="100" width="44" height="46" rx="3" fill="#c9ced6" stroke="#8a9099"/><rect x="6" y="108" width="30" height="30" fill="#aeb4bd"/>`;
+  base+=`<rect x="2" y="238" width="38" height="44" rx="3" fill="#1d1f22"/>`;
+  base+=`<rect x="16" y="56" width="346" height="270" rx="12" fill="url(#pcb)" stroke="#08456f" stroke-width="2"/>`;
+  [[30,70],[348,70],[30,312],[348,312]].forEach(([x,y])=>base+=`<circle cx="${x}" cy="${y}" r="5" fill="#0b1016" stroke="#c8c8c8" stroke-width="1.5"/>`);
+  // headers
+  base+=`<rect x="86" y="61" width="${DPIN_X[0]-86+9}" height="14" rx="2" fill="#15171a"/>`;
+  const topLab=[['AREF',94],['GND',111]];
+  topLab.forEach(([t,x])=>{ base+=`<rect x="${x-3}" y="65" width="6" height="6" fill="#555"/><text x="${x}" y="88" font-size="6" fill="#fff" text-anchor="middle">${t}</text>`; });
+  Object.entries(DPIN_X).forEach(([p,x])=>{ const pwm=B.pwm.has(Number(p)); base+=`<rect x="${x-3}" y="65" width="6" height="6" fill="#777"/><text x="${x}" y="89" font-size="10" fill="#fff" text-anchor="middle" font-weight="700">${p}</text>${pwm?`<text x="${x}" y="98" font-size="8" fill="#9fd6ff" text-anchor="middle">~</text>`:''}`; });
+  base+=`<text x="${(DPIN_X[13]+DPIN_X[0])/2}" y="110" font-size="8" fill="#cfe8ff" text-anchor="middle" letter-spacing="1">DIGITAL (PWM ~)</text>`;
+  base+=`<rect x="96" y="308" width="${7*15+1}" height="14" rx="2" fill="#15171a"/><rect x="${APIN_X(0)-8}" y="308" width="${8*17}" height="14" rx="2" fill="#15171a"/>`;
+  ['IOREF','RESET','3.3V','5V','GND','GND','VIN'].forEach((t,i)=>{ const x=104+i*15; const big=(i===3||i===4); base+=`<rect x="${x-3}" y="312" width="6" height="6" fill="#777"/><text x="${x}" y="303" font-size="${big?8.5:5}" fill="${big?'#fff':'#bcd'}" text-anchor="middle" font-weight="700">${t}</text>`; });
+  for(let i=0;i<8;i++){ const x=APIN_X(i); base+=`<rect x="${x-3}" y="312" width="6" height="6" fill="#777"/><text x="${x}" y="303" font-size="8.5" fill="#fff" text-anchor="middle" font-weight="700">A${i}</text>`; }
+  base+=`<text x="149" y="290" font-size="7.5" fill="#cfe8ff" text-anchor="middle" letter-spacing="1">POWER</text><text x="${APIN_X(3)+8}" y="290" font-size="7.5" fill="#cfe8ff" text-anchor="middle" letter-spacing="1">ANALOG IN</text>`;
+  // chip & labels
+  if(boardKey==='mega') base+=`<g transform="rotate(45 312 226)"><rect x="284" y="198" width="56" height="56" rx="3" fill="#1b1d20"/><text x="312" y="229" font-size="6" fill="#999" text-anchor="middle">ATMEGA2560</text></g>`;
+  else base+=`<rect x="200" y="232" width="120" height="26" rx="3" fill="#1b1d20"/><text x="260" y="248" font-size="7" fill="#999" text-anchor="middle">ATMEGA328P</text>`;
+  base+=`<text x="120" y="190" font-size="21" font-weight="800" fill="#fff" letter-spacing="1.5">∞ ARDUINO</text><text x="122" y="210" font-size="11" font-weight="700" fill="#cfe8ff" letter-spacing="2">${B.label}</text>`;
+  base+=`<rect x="100" y="118" width="11" height="6" rx="1" fill="#3a2a10"/><rect id="onboardL" x="100" y="118" width="11" height="6" rx="1" fill="#ffb02e" opacity="0"/><text x="115" y="124" font-size="8" fill="#fff" font-weight="700">L</text>`;
+  base+=`<rect x="56" y="150" width="9" height="5" fill="#3a2a10"/><rect id="txLed" x="56" y="150" width="9" height="5" fill="#ffb02e" opacity="0"/><text x="68" y="155" font-size="6" fill="#fff">TX</text>`;
+  base+=`<rect x="56" y="160" width="9" height="5" fill="#3a2a10"/><text x="68" y="165" font-size="6" fill="#fff">RX</text>`;
+  base+=`<rect x="56" y="214" width="9" height="5" fill="#33ff77"/><text x="68" y="219" font-size="6" fill="#fff">ON</text>`;
+  // power wires to rails
+  wires+=wirePath(`M149,318 C149,428 368,428 368,300 L368,62 C368,48 378,47 400,47`, '#e53935');
+  wires+=wirePath(`M164,318 C164,410 300,390 400,390`, '#222');
+
+  comps.forEach((c,i)=>{
+    const cx = 412 + (i+0.5)*(362/N); const w=getW(c); const col=WIRE_COLS[i%WIRE_COLS.length];
+    if(c.type==='led'){
+      if(w.pin) wires+=digWire(Number(w.pin), cx, 92, col); else parts+=qmark(cx,92);
+      if(w.res==='none') parts+=jumper(`M${cx},92 L${cx},206`, '#3fbf5f'); else parts+=resistorV(cx,92,206,w.res);
+      const rev=w.dir==='rev';
+      parts+=`<line x1="${cx}" y1="206" x2="${cx}" y2="240" stroke="#b9b9b9" stroke-width="2"/><line x1="${cx}" y1="265" x2="${cx}" y2="300" stroke="#b9b9b9" stroke-width="2"/>`;
+      parts+=jumper(`M${cx},300 L${cx},388`, '#222');
+      parts+=`<text x="${cx+17}" y="${rev?283:236}" font-size="12" font-weight="800" fill="#c62828">+</text>`;
+      if(rev) parts+=`<text x="${cx-28}" y="256" font-size="13">⚠️</text>`;
+      parts+=`<g id="smoke-${c.id}" opacity="0"><text x="${cx+12}" y="230" font-size="16">💨</text></g>`;
+      const col2=LEDC[c.color];
+      glow+=`<circle id="glow-${c.id}" cx="${cx}" cy="252" r="46" fill="url(#glow-${c.color})" opacity="0"/>`;
+      glow+=`<circle id="dome-${c.id}" cx="${cx}" cy="252" r="13" fill="${col2}" fill-opacity=".35" stroke="${col2}" stroke-opacity=".8" stroke-width="1.5"/>`;
+      glow+=`<line x1="${cx-9}" y1="${rev?242:262}" x2="${cx+9}" y2="${rev?242:262}" stroke="${col2}" stroke-width="2" opacity=".9"/>`;
+      glow+=`<circle id="core-${c.id}" cx="${cx}" cy="252" r="10" fill="#fff" opacity="0"/>`;
+      glow+=`<ellipse cx="${cx-4}" cy="247" rx="3.5" ry="2.2" fill="#fff" opacity=".55"/>`;
+    }
+    else if(c.type==='button'){
+      if(w.to==='5V') parts+=jumper(`M${cx-12},198 L${cx-12},48`, '#e53935');
+      else parts+=jumper(`M${cx+12},198 L${cx+32},198 L${cx+32},388`, '#222');
+      parts+=`<line x1="${cx-12}" y1="238" x2="${cx-12}" y2="262" stroke="#b9b9b9" stroke-width="2"/>`;
+      if(w.pin) wires+=digWire(Number(w.pin), cx-12, 262, col, cx-38); else parts+=qmark(cx-38,262);
+      if(w.pd!=='none'){ parts+=`<line x1="${cx-12}" y1="262" x2="${cx+8}" y2="262" stroke="#b9b9b9" stroke-width="2"/>`+resistorV(cx+8,262,350,w.pd); parts+=jumper(`M${cx+8},350 L${cx+8},388`, '#222'); }
+      parts+=`<circle cx="${cx-12}" cy="262" r="2.5" fill="#888"/>`;
+      parts+=`<g class="btnhit" data-btn="${c.id}">
+        ${[[-16,198],[12,198],[-16,234],[12,234]].map(([dx,y])=>`<rect x="${cx+dx}" y="${y}" width="4" height="6" fill="#9aa"/>`).join('')}
+        <rect x="${cx-16}" y="202" width="32" height="32" rx="3" fill="#2b2f36" stroke="#111"/>
+        <circle id="cap-${c.id}" cx="${cx}" cy="218" r="10" fill="#1d1f24" stroke="#555" stroke-width="2"/>
+        <circle id="ring-${c.id}" cx="${cx}" cy="218" r="15" fill="none" stroke="#19c6cb" stroke-width="2" opacity="0"/>
+        <rect x="${cx-22}" y="196" width="44" height="44" fill="transparent"/></g>`;
+      parts+=`<text x="${cx+20}" y="214" font-size="8" fill="#7a7468">hold</text>`;
+    }
+    else if(c.type==='pot'){
+      if(w.legs==='ok'){ parts+=jumper(`M${cx-14},184 L${cx-32},184 L${cx-32},48`, '#e53935'); parts+=jumper(`M${cx+14},184 L${cx+32},184 L${cx+32},388`, '#222'); }
+      if(w.apin!=='') wires+=anaWire(w.apin, cx, 184, col); else parts+=qmark(cx,206);
+      [-14,0,14].forEach(dx=>parts+=`<line x1="${cx+dx}" y1="170" x2="${cx+dx}" y2="184" stroke="#b9b9b9" stroke-width="2"/><circle cx="${cx+dx}" cy="184" r="2.5" fill="#888"/>`);
+      parts+=`<g class="knob" data-pot="${c.id}"><rect x="${cx-22}" y="126" width="44" height="44" rx="7" fill="#2f6fd6" stroke="#1d4fa6"/>
+        <circle cx="${cx}" cy="148" r="16" fill="#eef0f2" stroke="#9aa3ad" stroke-width="1.5"/>
+        <line id="ptr-${c.id}" x1="${cx}" y1="148" x2="${cx}" y2="134" stroke="#333" stroke-width="3" stroke-linecap="round"/></g>`;
+      parts+=`<text id="pv-${c.id}" x="${cx}" y="118" font-size="10" text-anchor="middle" fill="#2c3e50" font-weight="700" font-family="monospace"></text>`;
+    }
+    else if(c.type==='buzzer'){
+      if(w.pin) wires+=digWire(Number(w.pin), cx-7, 206, col, cx-40); else parts+=qmark(cx-40,206);
+      parts+=jumper(`M${cx+7},206 L${cx+7},388`, '#222');
+      parts+=`<line x1="${cx-7}" y1="190" x2="${cx-7}" y2="206" stroke="#b9b9b9" stroke-width="2"/><line x1="${cx+7}" y1="190" x2="${cx+7}" y2="206" stroke="#b9b9b9" stroke-width="2"/>`;
+      parts+=`<circle cx="${cx}" cy="168" r="23" fill="#141619" stroke="#000"/><circle cx="${cx}" cy="168" r="14" fill="none" stroke="#2a2d31" stroke-width="2"/><circle cx="${cx}" cy="168" r="3" fill="#000"/><text x="${cx-13}" y="156" font-size="10" fill="#fff" font-weight="700">+</text>`;
+      parts+=`<g id="wav-${c.id}">${[0,8,16].map(k=>`<path class="wave" d="M${cx+30+k},${154-k/2} Q${cx+38+k},168 ${cx+30+k},${182+k/2}" fill="none" stroke="#19a3a8" stroke-width="2.5" stroke-linecap="round"/>`).join('')}</g>`;
+    }
+    else if(c.type==='ldr'){
+      parts+=jumper(`M${cx},126 L${cx},48`, '#e53935');
+      parts+=`<line x1="${cx}" y1="126" x2="${cx}" y2="138" stroke="#b9b9b9" stroke-width="2"/><line x1="${cx}" y1="162" x2="${cx}" y2="206" stroke="#b9b9b9" stroke-width="2"/>`;
+      parts+=`<circle cx="${cx}" cy="150" r="13" fill="#f0b070" stroke="#c0703a"/><path d="M${cx-8},146 h4 v8 h4 v-8 h4 v8 h4" fill="none" stroke="#8a2c10" stroke-width="1.6"/>`;
+      if(w.res!=='none'){ parts+=resistorV(cx,206,300,w.res); parts+=jumper(`M${cx},300 L${cx},388`, '#222'); }
+      if(w.apin!=='') wires+=anaWire(w.apin, cx, 206, col, cx-30); else parts+=qmark(cx-30,206);
+      parts+=`<circle cx="${cx}" cy="206" r="2.5" fill="#888"/>`;
+      parts+=`<g id="sun-${c.id}"><circle cx="${cx+34}" cy="112" r="7" fill="#ffcf3a"/>${[0,45,90,135,180,225,270,315].map(a=>{const r=a*Math.PI/180;return `<line x1="${cx+34+Math.cos(r)*10}" y1="${112+Math.sin(r)*10}" x2="${cx+34+Math.cos(r)*14}" y2="${112+Math.sin(r)*14}" stroke="#ffcf3a" stroke-width="2"/>`}).join('')}</g>`;
+    }
+  });
+  const hasLdr = comps.some(c=>c.type==='ldr');
+  const overlay = hasLdr ? `<rect id="night" x="0" y="0" width="800" height="440" fill="#03060d" opacity="0" pointer-events="none"/>` : '';
+  $('#bench').innerHTML = defs + base + wires + parts + overlay + `<g pointer-events="none">${glow}</g>`;
+  $('#boardName').textContent = BOARDS[boardKey].name;
+  bindBenchEvents();
+}
+
+/* ---------------- inputs ---------------- */
+function press(id, down){
+  if(down) ensureAudio();
+  sim.pressed[id]=down;
+  document.querySelectorAll(`[data-hold="${id}"]`).forEach(b=>b.classList.toggle('down',down));
+}
+let activePress=null;
+function bindBenchEvents(){
+  document.querySelectorAll('.btnhit').forEach(g=>{
+    g.addEventListener('pointerdown', e=>{ e.preventDefault(); activePress=g.dataset.btn; press(activePress,true); });
+  });
+  document.querySelectorAll('.knob').forEach(g=>{
+    g.addEventListener('pointerdown', e=>{
+      e.preventDefault(); const id=g.dataset.pot; const sx=e.clientX, sy=e.clientY, v0=sim.pot[id] ?? 512;
+      const mv=ev=>{ setPot(id, clamp(Math.round(v0 + (ev.clientX-sx)*4 - (ev.clientY-sy)*4),0,1023)); };
+      const up=()=>{ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); };
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+    });
+  });
+}
+window.addEventListener('pointerup', ()=>{ if(activePress){ press(activePress,false); activePress=null; } });
+function setPot(id,v){ sim.pot[id]=v; const s=document.querySelector(`input[data-pot="${id}"]`); if(s){ s.value=v; } const o=document.querySelector(`[data-potv="${id}"]`); if(o) o.textContent=v; }
+function renderInputs(){
+  const el=$('#inputs'); let h='';
+  for(const c of task.comps){
+    if(c.type==='button') h+=`<button class="hold" data-hold="${c.id}">🔘 Hold button (or Space)</button>`;
+    if(c.type==='pot'){ const v=sim.pot[c.id] ?? 512; sim.pot[c.id]=v; h+=`<div class="ictl">🎛️ Potentiometer <input type="range" min="0" max="1023" value="${v}" data-pot="${c.id}"><span class="val" data-potv="${c.id}">${v}</span></div>`; }
+    if(c.type==='ldr') h+=`<div class="ictl">☀️ Room light <input type="range" min="0" max="100" value="${sim.light}" id="lightSl"><span class="val" id="lightV">${sim.light}%</span></div>`;
+  }
+  if(!h) h=`<span class="muted" style="font-size:12.5px">No inputs in this experiment, just watch the outputs.</span>`;
+  el.innerHTML=h;
+  el.querySelectorAll('[data-hold]').forEach(b=>{
+    b.addEventListener('pointerdown', e=>{ e.preventDefault(); activePress=b.dataset.hold; press(activePress,true); });
+  });
+  el.querySelectorAll('input[data-pot]').forEach(s=>s.addEventListener('input',()=>setPot(s.dataset.pot, Number(s.value))));
+  const ls=$('#lightSl'); if(ls) ls.addEventListener('input',()=>{ sim.light=Number(ls.value); $('#lightV').textContent=sim.light+'%'; });
+}
+document.addEventListener('keydown', e=>{
+  if(e.code!=='Space' || e.repeat) return;
+  const t=e.target; if(t && (t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='BUTTON')) return;
+  const b=task.comps.find(c=>c.type==='button'); if(!b) return;
+  e.preventDefault(); press(b.id,true);
+});
+document.addEventListener('keyup', e=>{ if(e.code!=='Space') return; const b=task.comps.find(c=>c.type==='button'); if(b && sim.pressed[b.id]) press(b.id,false); });
+
+/* ---------------- wiring panel ---------------- */
+const dOpts = sel => ['<option value="">— not connected</option>', ...[2,3,4,5,6,7,8,9,10,11,12,13].map(p=>`<option value="${p}" ${String(p)===sel?'selected':''}>pin ${p}${BOARDS[boardKey].pwm.has(p)?' ~':''}</option>`)].join('');
+const aOpts = sel => ['<option value="">— not connected</option>', ...[0,1,2,3,4,5].map(p=>`<option value="${p}" ${String(p)===sel?'selected':''}>A${p}</option>`)].join('');
+const opts = (list, sel) => list.map(([v,t])=>`<option value="${v}" ${v===sel?'selected':''}>${t}</option>`).join('');
+function renderWiring(){
+  let h='';
+  for(const c of task.comps){
+    const w=getW(c); let f='';
+    if(c.type==='led'){
+      f+=`<label>Long leg (+) side → <select data-c="${c.id}" data-k="pin">${dOpts(w.pin)}</select></label>`;
+      f+=`<label>Resistor in series <select data-c="${c.id}" data-k="res">${opts([['none','none (direct)'],['220','220Ω'],['330','330Ω'],['1k','1kΩ'],['10k','10kΩ']],w.res)}</select></label>`;
+      f+=`<label>LED direction <select data-c="${c.id}" data-k="dir">${opts([['ok','long leg (+) toward the pin'],['rev','reversed (short leg toward pin)']],w.dir)}</select></label>`;
+      f+=`<span class="note">short leg (−) → GND</span>`;
+      if(sim.burned[c.id]) f+=`<span class="burnt">💥 burned</span><button class="tiny" data-replace="${c.id}">Replace LED</button>`;
+    } else if(c.type==='button'){
+      f+=`<label>Leg A → input <select data-c="${c.id}" data-k="pin">${dOpts(w.pin)}</select></label>`;
+      f+=`<label>Leg B → <select data-c="${c.id}" data-k="to">${opts([['5V','5V'],['GND','GND']],w.to)}</select></label>`;
+      f+=`<label>Pull-down (input pin → GND) <select data-c="${c.id}" data-k="pd">${opts([['none','none'],['10k','10kΩ'],['220','220Ω']],w.pd)}</select></label>`;
+    } else if(c.type==='pot'){
+      f+=`<label>Middle leg → <select data-c="${c.id}" data-k="apin">${aOpts(w.apin)}</select></label>`;
+      f+=`<label>Outer legs <select data-c="${c.id}" data-k="legs">${opts([['ok','5V and GND'],['nc','not connected']],w.legs)}</select></label>`;
+    } else if(c.type==='buzzer'){
+      f+=`<label>(+) leg → <select data-c="${c.id}" data-k="pin">${dOpts(w.pin)}</select></label><span class="note">(−) leg → GND</span>`;
+    } else if(c.type==='ldr'){
+      f+=`<span class="note">LDR top leg → 5V</span><label>LDR bottom leg (junction) → <select data-c="${c.id}" data-k="apin">${aOpts(w.apin)}</select></label>`;
+      f+=`<label>Resistor junction → GND <select data-c="${c.id}" data-k="res">${opts([['none','none'],['10k','10kΩ'],['220','220Ω']],w.res)}</select></label>`;
+    }
+    h+=`<div class="wrow"><div class="wname"><span class="dot" style="background:${compColor(c)};color:${compColor(c)}"></span>${compName(c)}</div><div class="wfields">${f}</div></div>`;
+  }
+  $('#wiring').innerHTML=h;
+  $('#wiring').querySelectorAll('select').forEach(s=>s.addEventListener('change',()=>{
+    const c=task.comps.find(x=>x.id===s.dataset.c); const w=getW(c); w[s.dataset.k]=s.value;
+    if(c.type==='led' && s.dataset.k==='res' && s.value!=='none') sim.burned[c.id]=false;
+    saveWiring(); renderBench(); renderWiring(); $('#wireReport').innerHTML='';
+  }));
+  $('#wiring').querySelectorAll('[data-replace]').forEach(b=>b.addEventListener('click',()=>{ sim.burned[b.dataset.replace]=false; renderWiring(); }));
+}
+function checkWiring(){
+  const items=[];
+  const add=(cls,t)=>items.push({cls,t});
+  const used = sim.lastUsed;
+  for(const c of task.comps){
+    const w=getW(c), name=compName(c);
+    if(c.type==='led'){
+      const exp=expectedPin(c);
+      if(!w.pin) add('bad',`${name}: not connected to any pin.`);
+      else { if(Number(w.pin)!==exp) add('note',`${name}: on pin ${w.pin}; the standard for this task is pin ${exp}. That's OK only if your code uses pin ${w.pin}.`);
+        if(used && !used.has(Number(w.pin))) add('bad',`${name}: your last uploaded code never uses pin ${w.pin}.`);
+        if(task.pwm && !BOARDS[boardKey].pwm.has(Number(w.pin))) add('bad',`${name}: pin ${w.pin} is not PWM on the ${BOARDS[boardKey].name}, so it cannot fade.`); }
+      if(w.res==='none') add('bad',`${name}: no resistor! The LED burns. Put 220Ω (or 330Ω) in series.`);
+      else if(w.res==='10k') add('bad',`${name}: 10kΩ is too big for an LED, so it is almost invisible. Use 220Ω.`);
+      else if(w.res==='1k') add('note',`${name}: 1kΩ works but the LED is dim. The lab uses 220Ω.`);
+      else add('good',`${name}: ${w.res}Ω in series ✓`);
+      if(w.dir==='rev') add('bad',`${name}: LED is backwards. The long leg (+, anode) goes toward the Arduino pin, and the short leg (−) goes to GND.`);
+    } else if(c.type==='button'){
+      if(!w.pin) add('bad',`${name}: not connected to an input pin.`);
+      else { if(Number(w.pin)!==c.pin) add('note',`${name}: on pin ${w.pin}; the standard is pin ${c.pin}. OK only if your code reads pin ${w.pin}.`);
+        if(used && !used.has(Number(w.pin))) add('bad',`${name}: your last uploaded code never reads pin ${w.pin}.`); }
+      if(w.to!=='5V') add('bad',`${name}: with a pull-down resistor, the other leg must go to 5V (pressed = HIGH). To GND it always reads LOW.`);
+      if(w.pd==='none') add('bad',`${name}: missing the 10kΩ pull-down from the input pin to GND, so the pin floats and gives random readings.`);
+      else if(w.pd==='220') add('note',`${name}: 220Ω as pull-down works but wastes current (23 mA when pressed). Use 10kΩ.`);
+      else if(w.to==='5V') add('good',`${name}: 5V → button → pin, with 10kΩ pull-down to GND ✓`);
+    } else if(c.type==='pot'){
+      if(w.apin==='') add('bad',`${name}: middle leg not connected to an analog pin.`);
+      else if(Number(w.apin)!==c.apin) add('note',`${name}: on A${w.apin}; the standard is A${c.apin}. OK only if your code reads A${w.apin}.`);
+      else add('good',`${name}: middle leg → A${c.apin} ✓`);
+      if(w.legs!=='ok') add('bad',`${name}: the outer legs must go to 5V and GND.`);
+    } else if(c.type==='buzzer'){
+      if(!w.pin) add('bad',`${name}: (+) leg not connected.`);
+      else if(Number(w.pin)!==c.pin) add('note',`${name}: on pin ${w.pin}; the standard is pin ${c.pin}.`);
+      else add('good',`${name}: (+) → pin ${c.pin}, (−) → GND ✓`);
+    } else if(c.type==='ldr'){
+      if(w.apin==='') add('bad',`${name}: junction not connected to an analog pin.`);
+      else add('good',`${name}: 5V → LDR → A${w.apin} ✓`);
+      if(w.res==='none') add('bad',`${name}: needs a 10kΩ from the junction to GND (voltage divider).`);
+      else if(w.res==='220') add('note',`${name}: 220Ω makes the readings very small. Use 10kΩ.`);
+      else add('good',`${name}: 10kΩ junction → GND ✓`);
+    }
+  }
+  const ok=!items.some(i=>i.cls==='bad');
+  if(ok && sim.ranOnce){ done.add(task.id); store.set('done',[...done]); renderTaskList(); }
+  const head = ok ? `<div class="rep good"><b>Wiring looks correct.</b> ${sim.ranOnce?'':'Now upload your code and test it.'}</div>` : `<div class="rep bad"><b>Fix these before running:</b></div>`;
+  const html = head + items.filter(i=>!(ok && i.cls==='good')).map(i=>`<div class="rep ${i.cls}">${i.cls==='bad'?'✗':i.cls==='note'?'•':'✓'} ${esc(i.t)}</div>`).join('');
+  return {ok, html};
+}
+
+/* ---------------- schematic ---------------- */
+function schematicSVG(){
+  const ink='#1d2733', pen='#1f4fbf';
+  const order={button:0,pot:1,ldr:2,led:3,buzzer:4};
+  const comps=[...task.comps].sort((a,b)=>order[a.type]-order[b.type]);
+  const n=comps.length, colW=175, W=Math.max(560, 120+n*colW+170), H=380;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">`;
+  const line=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${pen}" stroke-width="2.2" stroke-linecap="round"/>`;
+  const txt=(x,y,t,o='')=>`<text x="${x}" y="${y}" fill="${ink}" font-size="13" ${o}>${t}</text>`;
+  const gnd=(x,y)=>line(x,y,x,y+8)+line(x-12,y+8,x+12,y+8)+line(x-8,y+13,x+8,y+13)+line(x-4,y+18,x+4,y+18);
+  const vcc=(x,y)=>line(x,y,x,y-10)+line(x-9,y-10,x+9,y-10)+txt(x,y-16,'5V','text-anchor="middle" font-weight="700"');
+  const res=(x,y1,y2,label)=>{ const h=y2-y1, seg=h/8; let d=`M${x},${y1}`; for(let i=1;i<8;i++) d+=` L${x+(i%2?9:-9)},${y1+seg*i}`; d+=` L${x},${y2}`; return `<path d="${d}" fill="none" stroke="${pen}" stroke-width="2.2" stroke-linejoin="round"/>`+txt(x+15,(y1+y2)/2+4,label,'font-weight="600"'); };
+  const dot=(x,y)=>`<circle cx="${x}" cy="${y}" r="3.6" fill="${pen}"/>`;
+  s+=`<rect x="30" y="20" width="${W-60}" height="64" rx="8" fill="#e8eef9" stroke="${ink}" stroke-width="2"/>`;
+  s+=txt(W/2,46,BOARDS[boardKey].name,'text-anchor="middle" font-weight="800" font-size="15"');
+  const pv=W-120, gx=W-70;
+  s+=txt(pv,76,'5V','text-anchor="middle" font-weight="700"')+line(pv,84,pv,100)+`<path d="M${pv-6},94 L${pv},102 L${pv+6},94" fill="none" stroke="${pen}" stroke-width="2"/>`+txt(pv,120,'(5V net)','text-anchor="middle" font-size="11"');
+  s+=txt(gx,76,'GND','text-anchor="middle" font-weight="700"')+gnd(gx,84);
+  comps.forEach((c,k)=>{
+    const x=110+k*colW; const w=getW(c);
+    const pinLabel = c.type==='pot'||c.type==='ldr' ? 'A'+(w.apin!==''?w.apin:c.apin) : 'D'+(w.pin||expectedPin(c));
+    s+=txt(x,76,pinLabel,'text-anchor="middle" font-weight="700"');
+    if(c.type==='led'){
+      s+=line(x,84,x,120)+res(x,120,180,'220Ω')+line(x,180,x,206);
+      s+=`<polygon points="${x-12},206 ${x+12},206 ${x},226" fill="none" stroke="${pen}" stroke-width="2.2" stroke-linejoin="round"/>`+line(x-12,226,x+12,226);
+      s+=`<path d="M${x+14},208 l12,-8 M${x+22},200 l4,0 l0,4 M${x+16},218 l12,-8 M${x+24},210 l4,0 l0,4" fill="none" stroke="${pen}" stroke-width="1.8"/>`;
+      s+=txt(x-18,221,CNAME[c.color]+' LED','font-size="12" text-anchor="end"');
+      s+=line(x,226,x,262)+gnd(x,262);
+    } else if(c.type==='buzzer'){
+      s+=line(x,84,x,150)+`<circle cx="${x}" cy="170" r="20" fill="none" stroke="${pen}" stroke-width="2.2"/>`+txt(x,175,'BZ','text-anchor="middle" font-size="12" font-weight="700"')+txt(x-16,146,'+','font-weight="800"');
+      s+=line(x,190,x,240)+gnd(x,240);
+    } else if(c.type==='button'||c.type==='ldr'){
+      s+=line(x,84,x,210)+dot(x,210);
+      s+=res(x,224,290,c.type==='button'?'10kΩ':'10kΩ')+line(x,210,x,224)+line(x,290,x,300)+gnd(x,300);
+      s+=line(x,210,x+56,210)+line(x+56,210,x+56,190);
+      if(c.type==='button'){
+        s+=`<circle cx="${x+56}" cy="186" r="3.5" fill="none" stroke="${pen}" stroke-width="2"/><circle cx="${x+56}" cy="146" r="3.5" fill="none" stroke="${pen}" stroke-width="2"/>`;
+        s+=line(x+56,183,x+72,150)+txt(x+76,172,'button','font-size="12"');
+      } else {
+        s+=`<rect x="${x+48}" y="142" width="16" height="44" fill="none" stroke="${pen}" stroke-width="2.2"/><circle cx="${x+56}" cy="164" r="24" fill="none" stroke="${pen}" stroke-width="1.6"/>`;
+        s+=`<path d="M${x+90},138 l-18,12 M${x+76},148 l-4,2 l2,-4 M${x+92},152 l-18,12 M${x+78},162 l-4,2 l2,-4" fill="none" stroke="${pen}" stroke-width="1.8"/>`+txt(x+86,196,'LDR','font-size="12"');
+      }
+      s+=line(x+56,142,x+56,118)+vcc(x+56,118);
+    } else if(c.type==='pot'){
+      s+=line(x,84,x,200)+line(x,200,x+40,200)+`<path d="M${x+40},200 l-9,-5 l0,10 z" fill="${pen}"/>`;
+      s+=`<rect x="${x+44}" y="160" width="16" height="80" fill="none" stroke="${pen}" stroke-width="2.2"/>`+txt(x+66,204,'10kΩ pot','font-weight="600"');
+      s+=line(x+52,160,x+52,126)+vcc(x+52,126)+line(x+52,240,x+52,268)+gnd(x+52,268);
+    }
+  });
+  s+=`<text x="${W-14}" y="${H-10}" fill="#8a8a8a" font-size="11" text-anchor="end">All GND symbols are the same point (Arduino GND)</text></svg>`;
+  return s;
+}
+const HOW = {
+  led:'LED branch: pin → 220Ω → LED (triangle points toward GND, bar = cathode / short leg) → GND.',
+  button:'Button branch (pull-down): 5V → button → input pin, and from the same point 10kΩ → GND. Put a dot where three wires meet.',
+  pot:'Potentiometer: outer legs to 5V and GND, middle leg (wiper arrow) → A0.',
+  buzzer:'Buzzer: pin → (+) buzzer (−) → GND.',
+  ldr:'LDR voltage divider: 5V → LDR → junction → A0, and junction → 10kΩ → GND.'
+};
+
+/* ---------------- modal ---------------- */
+function openModal(title, html){ $('#modalTitle').textContent=title; $('#modalBody').innerHTML=html; $('#modal').classList.remove('hidden'); }
+function closeModal(){ $('#modal').classList.add('hidden'); }
+$('#modalClose').onclick=closeModal;
+$('#modal').addEventListener('pointerdown', e=>{ if(e.target.id==='modal') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+function showDiagram(){
+  const types=[...new Set(task.comps.map(c=>c.type))];
+  openModal('Circuit diagram · مخطط كهربائي: '+task.title,
+    `<div class="paper">${schematicSVG()}</div>
+     <ul class="how">${types.map(t=>`<li>${esc(HOW[t])}</li>`).join('')}
+       <li>Write the value next to every resistor and the pin number next to every wire. All paths end at GND.</li></ul>`);
+}
+function showSolution(){
+  openModal('Solution: '+task.title,
+    `<div class="solcode">${highlight(task.solution)}</div>
+     <div class="mbtns"><button class="primary" id="loadSol">Load into editor</button><button id="closeSol" class="ghost">Close</button></div>
+     <p class="muted" style="margin-top:10px">Try writing it yourself first. In the exam you only have your memory.</p>`);
+  $('#loadSol').onclick=()=>{ setCode(task.solution); saveCode(); closeModal(); };
+  $('#closeSol').onclick=closeModal;
+}
+
+/* ---------------- editor ---------------- */
+const KW=new Set(['void','int','long','float','double','bool','boolean','byte','char','unsigned','const','static','String','word','short','if','else','for','while','do','return','break','continue','switch','case','default','true','false']);
+const CONSTS=new Set(['HIGH','LOW','INPUT','OUTPUT','INPUT_PULLUP','LED_BUILTIN','A0','A1','A2','A3','A4','A5','DEC','HEX','BIN','OCT','PI']);
+const FNS=new Set(['pinMode','digitalWrite','digitalRead','analogWrite','analogRead','delay','delayMicroseconds','millis','micros','map','constrain','tone','noTone','random','randomSeed','min','max','abs','pow','sqrt','setup','loop','Serial','begin','print','println','available','read','write','sizeof']);
+function highlight(src){
+  const re=/(\/\/[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|("(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*')|(#\w+)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_]\w*)/g;
+  let out='', last=0, m;
+  while((m=re.exec(src))){
+    if(m[0]===''){ re.lastIndex++; continue; }
+    out+=esc(src.slice(last,m.index)); const t=m[0]; let cls=null;
+    if(m[1]) cls='c-com'; else if(m[2]) cls='c-str'; else if(m[3]) cls='c-pre'; else if(m[4]) cls='c-num';
+    else if(KW.has(t)) cls='c-kw'; else if(CONSTS.has(t)) cls='c-const'; else if(FNS.has(t)) cls='c-fn';
+    out+= cls?`<span class="${cls}">${esc(t)}</span>`:esc(t); last=m.index+t.length;
+  }
+  return out+esc(src.slice(last))+'\n';
+}
+const ta=$('#code'), hl=$('#hl');
+function renderGutter(){
+  const n=ta.value.split('\n').length; let h='';
+  for(let i=1;i<=n;i++) h+=`<div class="${i===errLine?'err':''}">${i}</div>`;
+  $('#gutter').innerHTML=h; syncScroll();
+}
+function positionErrBand(){
+  const b=$('#errband'); if(!errLine){ b.classList.add('hidden'); return; }
+  b.classList.remove('hidden'); b.style.top=(10+(errLine-1)*20-ta.scrollTop)+'px';
+}
+function syncScroll(){ hl.scrollTop=ta.scrollTop; hl.scrollLeft=ta.scrollLeft; $('#gutter').scrollTop=ta.scrollTop; positionErrBand(); }
+function refreshEditor(){ hl.innerHTML=highlight(ta.value); renderGutter(); }
+function setCode(s){ ta.value=s; errLine=null; refreshEditor(); }
+let saveT=null;
+function saveCode(){ store.set('code:'+task.id+(exam.active?':exam':''), ta.value); }
+ta.addEventListener('input',()=>{ if(errLine){ errLine=null; } refreshEditor(); clearTimeout(saveT); saveT=setTimeout(saveCode,300); });
+ta.addEventListener('scroll',syncScroll);
+ta.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); upload(); return; }
+  if(e.key==='Tab'){ e.preventDefault(); document.execCommand('insertText',false,'  '); return; }
+  if(e.key==='Enter'){
+    const v=ta.value, p=ta.selectionStart, ls=v.lastIndexOf('\n',p-1)+1, line=v.slice(ls,p);
+    let ind=(line.match(/^\s*/)||[''])[0]; if(/\{\s*$/.test(line)) ind+='  ';
+    e.preventDefault(); document.execCommand('insertText',false,'\n'+ind);
+  }
+  if(e.key==='}'){
+    const v=ta.value, p=ta.selectionStart, ls=v.lastIndexOf('\n',p-1)+1, before=v.slice(ls,p);
+    if(/^\s+$/.test(before) && before.length>=2){ e.preventDefault(); ta.setSelectionRange(p-2,p); document.execCommand('insertText',false,'}'); }
+  }
+});
+
+/* ---------------- task switching ---------------- */
+function renderTaskList(){
+  $('#taskList').innerHTML = TASKS.map((t,i)=>`<div class="task ${t.id===task.id?'active':''} ${done.has(t.id)?'done':''}" data-id="${t.id}">
+    <div class="n">${done.has(t.id)?'✓':i+1}</div><div><div class="t">${esc(t.title)}</div><div class="a ar" dir="rtl" style="text-align:left">${esc(t.ar)}</div>
+    ${exam.active && t.id!==task.id?'<div class="lock">locked during exam</div>':''}</div></div>`).join('');
+  $('#taskList').querySelectorAll('.task').forEach(el=>el.onclick=()=>{ if(exam.active) return; selectTask(el.dataset.id); });
+}
+function renderTaskCard(){
+  const i=TASKS.indexOf(task);
+  $('#tNum').textContent=i+1; $('#tTitle').textContent=task.title; $('#tAr').textContent=task.ar;
+  $('#tGoal').textContent=task.goal; $('#tTest').textContent='How to test: '+task.test;
+  let warn='';
+  if(boardKey==='uno' && task.pwm) warn=`<div class="warnbox">⚠ On the Arduino Uno, pin 13 is <b>not</b> a PWM pin, so analogWrite(13) can't fade. Move the LED and your code to <b>pin 9</b>. On the Mega 2560 (the lab board) pin 13 is fine.</div>`;
+  $('#tWarn').innerHTML=warn;
+  $('#sketchName').textContent='sketch_'+task.id+'.ino';
+}
+function selectTask(id){
+  saveCode(); stopRun(true);
+  task=TASKS.find(t=>t.id===id)||TASKS[0]; store.set('task',task.id);
+  sim.pressed={}; sim.lastUsed=null; sim.ranOnce=false; sim.serialBuf=''; plotData.length=0;
+  setCode(store.get('code:'+task.id, EMPTY)); clearConsole(); setStatus('Ready');
+  $('#wireReport').innerHTML='';
+  renderAll();
+}
+function renderAll(){ renderTaskList(); renderTaskCard(); renderBench(); renderInputs(); renderWiring(); updateLocks(); }
+
+/* ---------------- render loop ---------------- */
+function pinLevel(p){ if(sim.pwm[p]!=null) return sim.pwm[p]/255; if(sim.dig[p]) return sim.modes[p]===1?1:0.08; return 0; }
+function ledBrightness(c){
+  const w=getW(c); if(!w.pin || sim.burned[c.id]) return 0;
+  const p=Number(w.pin), lvl=pinLevel(p); if(lvl<=0) return 0;
+  if(sim.dig[p] && sim.modes[p]!==1 && sim.pwm[p]==null) hint('dim'+p, `⚠ Pin ${p} is set HIGH but was never made an OUTPUT, so the LED is very dim. Add pinMode(${p}, OUTPUT); in setup().`);
+  if(w.dir==='rev') return 0;
+  if(w.res==='none'){
+    if(lvl>0.05 && sim.running){ sim.burned[c.id]=true; log(`💥 The ${compName(c)} burned out: there is no resistor in series! Choose 220Ω in the wiring panel (or click "Replace LED").`,'err'); renderWiring(); }
+    return 0;
+  }
+  return lvl*RES_F[w.res];
+}
+const plotData=[]; let lastPlot=0;
+function frame(now){
+  try{
+    for(const c of task.comps){
+      if(c.type==='led'){
+        const b=ledBrightness(c), d=Math.pow(b,0.5);
+        const g=document.getElementById('glow-'+c.id), core=document.getElementById('core-'+c.id), dome=document.getElementById('dome-'+c.id), sm=document.getElementById('smoke-'+c.id);
+        if(g){ g.setAttribute('opacity', (d*0.95).toFixed(3)); core.setAttribute('opacity',(d*0.85).toFixed(3));
+          dome.setAttribute('fill-opacity', sim.burned[c.id]?1:(0.35+0.65*d).toFixed(3)); dome.setAttribute('fill', sim.burned[c.id]?'#2a2a2a':LEDC[c.color]);
+          sm.setAttribute('opacity', sim.burned[c.id]?1:0); }
+      } else if(c.type==='button'){
+        const cap=document.getElementById('cap-'+c.id), ring=document.getElementById('ring-'+c.id), p=!!sim.pressed[c.id];
+        if(cap){ cap.setAttribute('r', p?8.5:10); cap.setAttribute('fill', p?'#0b0c0f':'#1d1f24'); ring.setAttribute('opacity', p?1:0); }
+      } else if(c.type==='pot'){
+        const v=sim.pot[c.id] ?? 512, ptr=document.getElementById('ptr-'+c.id), pv=document.getElementById('pv-'+c.id);
+        const ang=-135+v/1023*270, x=pinX(c); if(ptr) ptr.setAttribute('transform',`rotate(${ang} ${x} 148)`);
+        const w=getW(c); if(pv) pv.textContent=(w.apin!==''?'A'+w.apin:'A?')+' = '+v;
+      } else if(c.type==='buzzer'){
+        const w=getW(c); let f=0;
+        if(w.pin && sim.running){ const p=Number(w.pin);
+          if(sim.tone && sim.tone.pin===p){ if(now<sim.tone.until) f=sim.tone.f; else sim.tone=null; }
+          else if(sim.pwm[p]!=null) f=490; else if(sim.dig[p] && sim.modes[p]===1) f=2300; }
+        setBuzz(f);
+        document.querySelectorAll(`#wav-${c.id} .wave`).forEach(el=>el.classList.toggle('on', f>0));
+      } else if(c.type==='ldr'){
+        const s=document.getElementById('sun-'+c.id); if(s) s.setAttribute('opacity',(0.15+0.85*sim.light/100).toFixed(2));
+        const n=document.getElementById('night'); if(n) n.setAttribute('opacity',((1-sim.light/100)*0.62).toFixed(3));
+      }
+    }
+    const L=document.getElementById('onboardL'); if(L) L.setAttribute('opacity', pinLevel(13).toFixed(3));
+    const tx=document.getElementById('txLed'); if(tx) tx.setAttribute('opacity', now-sim.txFlash<70?1:0);
+    if(sim.serialBuf){ appendSerial(sim.serialBuf); sim.serialBuf=''; }
+    if(now-lastPlot>30){ lastPlot=now; samplePlot(now); drawPlot(now); }
+  }catch(e){ console.error(e); }
+  requestAnimationFrame(frame);
+}
+function pinX(c){ const i=task.comps.indexOf(c); return 412+(i+0.5)*(362/task.comps.length); }
+let serialText='';
+function appendSerial(s){
+  serialText+=s; if(serialText.length>40000) serialText=serialText.slice(-30000);
+  const o=$('#serialOut'); o.textContent=serialText; if($('#autoscroll').checked) o.scrollTop=o.scrollHeight;
+}
+$('#serialClear').onclick=()=>{ serialText=''; $('#serialOut').textContent=''; };
+
+function plotSeries(){
+  const out=[];
+  for(const c of task.comps){ const w=getW(c);
+    if((c.type==='led'||c.type==='buzzer') && w.pin){ const p=Number(w.pin); out.push({key:c.id, color:c.type==='led'?LEDC[c.color]:'#19c6cb', label:(c.type==='led'?CNAME[c.color]+' LED':'Buzzer')+' · pin '+p, v:()=>Math.round(pinLevel(p)*255)}); }
+  }
+  return out;
+}
+function samplePlot(now){
+  const ser=plotSeries(); const vals={}; ser.forEach(s=>vals[s.key]=sim.running?s.v():0);
+  plotData.push({t:now, vals}); while(plotData.length && now-plotData[0].t>6000) plotData.shift();
+}
+function drawPlot(now){
+  const cv=$('#plot'), dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight; if(!W) return;
+  if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
+  const top=8, bot=H-14, y=v=>bot-(v/255)*(bot-top);
+  g.strokeStyle='#1d2b38'; g.lineWidth=1; g.font='10px ui-monospace,monospace'; g.fillStyle='#5f7488';
+  [0,127,255].forEach(v=>{ g.beginPath(); g.moveTo(34,y(v)); g.lineTo(W-6,y(v)); g.stroke(); g.fillText(String(v),4,y(v)+3); });
+  const ser=plotSeries(); let lx=40;
+  ser.forEach((s,si)=>{
+    g.strokeStyle=s.color; g.lineWidth=2; g.beginPath(); let first=true;
+    for(const d of plotData){ const x=34+(1-(now-d.t)/6000)*(W-40), v=d.vals[s.key]??0, yy=y(v)+si*1.5; if(first){ g.moveTo(x,yy); first=false; } else g.lineTo(x,yy); }
+    g.stroke(); g.fillStyle=s.color; g.fillText(s.label, lx, H-3); lx+=g.measureText(s.label).width+18;
+  });
+  if(!ser.length){ g.fillStyle='#5f7488'; g.fillText('Connect an output (LED/buzzer) to a pin to see its signal here', 40, H/2); }
+}
+
+/* ---------------- exam mode ---------------- */
+function updateLocks(){
+  $('#solBtn').disabled=exam.active; $('#diagBtn').disabled=exam.active; $('#autoBtn').disabled=exam.active;
+  $('#examBtn').textContent= exam.active?'🏁 Finish exam':'🎓 Exam mode';
+  $('#examTimer').classList.toggle('hidden',!exam.active);
+}
+function startExam(){
+  const pool=TASKS.filter(t=>t.id!==task.id); const t=pool[Math.floor(Math.random()*pool.length)];
+  saveCode(); exam.active=true; exam.end=Date.now()+15*60*1000;
+  selectTask(t.id);
+  wiring[task.id]={}; task.comps.forEach(c=>getW(c)); saveWiring();
+  setCode(EMPTY); saveCode(); renderAll();
+  log('🎓 Exam started: '+task.title+'. Draw the diagram on paper, wire it, write the code, upload and test. You have 15 minutes.','ok');
+  clearInterval(exam.timerId); exam.timerId=setInterval(tickTimer,500); tickTimer();
+}
+function tickTimer(){
+  const left=Math.max(0, exam.end-Date.now()), m=Math.floor(left/60000), s=Math.floor(left/1000)%60;
+  const el=$('#examTimer'); el.textContent=`${m}:${String(s).padStart(2,'0')}`; el.classList.toggle('ok', left>3*60000);
+  if(left<=0) finishExam(true);
+}
+function finishExam(timeUp){
+  clearInterval(exam.timerId); exam.active=false; updateLocks(); renderTaskList();
+  const r=checkWiring();
+  openModal(timeUp?'⏰ Time is up':'🏁 Exam finished: '+task.title,
+    `<p>${sim.ranOnce?'You uploaded and ran your code. Did the bench behave like the task says?':'<b>You never uploaded your code.</b> In the real exam the teacher wants to see it running.'}</p>
+     <div class="card-title" style="margin-top:12px">Wiring check</div>${r.html}
+     <div class="mbtns"><button class="primary" id="exDiag">📐 Show the correct diagram</button><button id="exSol">💡 Show the solution</button><button id="exAgain" class="ghost">Try another random task</button></div>`);
+  $('#exDiag').onclick=showDiagram; $('#exSol').onclick=showSolution; $('#exAgain').onclick=()=>{ closeModal(); startExam(); };
+}
+$('#examBtn').onclick=()=>{
+  if(exam.active){ finishExam(false); return; }
+  openModal('🎓 Exam mode',
+    `<p style="line-height:1.6">A <b>random experiment</b> is picked, the bench is unplugged and the code is reset to an empty sketch, just like tomorrow.</p>
+     <ol class="how"><li>Draw the circuit diagram on paper (مخطط كهربائي).</li><li>Wire it in the wiring panel.</li><li>Write the code from memory and press Upload (شغّل التجربة).</li><li>Test it, then press <b>Finish exam</b> to see your wiring check, the diagram and the solution.</li></ol>
+     <p class="muted">Timer: 15 minutes. Solution, diagram and auto-wire are locked until you finish.</p>
+     <div class="mbtns"><button class="primary" id="exStart">Start exam</button><button class="ghost" id="exCancel">Cancel</button></div>`);
+  $('#exStart').onclick=()=>{ closeModal(); startExam(); };
+  $('#exCancel').onclick=closeModal;
+};
+
+/* ---------------- buttons ---------------- */
+$('#verifyBtn').onclick=()=>{ compile(); };
+$('#uploadBtn').onclick=()=>{ upload(); };
+$('#stopBtn').onclick=()=>{ stopRun(); setStatus('Stopped'); };
+$('#resetCodeBtn').onclick=()=>{ setCode(EMPTY); saveCode(); };
+$('#solBtn').onclick=showSolution;
+$('#diagBtn').onclick=showDiagram;
+$('#checkBtn').onclick=()=>{ $('#wireReport').innerHTML=checkWiring().html; };
+$('#autoBtn').onclick=()=>{ for(const c of task.comps){ wiring[task.id][c.id]=correctWire(c); sim.burned[c.id]=false; } saveWiring(); renderBench(); renderWiring(); $('#wireReport').innerHTML=checkWiring().html; };
+$('#clearBtn').onclick=()=>{ for(const c of task.comps){ wiring[task.id][c.id]=defaultWire(c); sim.burned[c.id]=false; } saveWiring(); renderBench(); renderWiring(); $('#wireReport').innerHTML=''; };
+$('#boardSel').value=boardKey;
+$('#boardSel').onchange=e=>{ stopRun(true); boardKey=e.target.value; store.set('board',boardKey); renderAll(); log('Board changed to '+BOARDS[boardKey].name+'. Upload again.','info'); };
+function renderSound(){ $('#soundBtn').textContent= soundOn?'🔊 Sound on':'🔇 Sound off'; }
+$('#soundBtn').onclick=()=>{ soundOn=!soundOn; store.set('sound',soundOn); renderSound(); ensureAudio(); const f=buzzF; buzzF=-1; setBuzz(f); };
+
+/* ---------------- visit counter (counts only on the GitHub Pages site) ---------------- */
+(async function visitCounter(){
+  const API='https://abacus.jasoncameron.dev', SPACE='aali205-mpmc-sim';
+  const onSite=/\.github\.io$/.test(location.hostname);
+  try{
+    if(/[?&]me\b/.test(location.search)) store.set('me',true);   // open the site once with ?me so your own visits are not counted
+    const me=store.get('me',false), seen=store.get('seen',false), count=onSite && !me;
+    const call=async(op,key)=>{ const r=await fetch(`${API}/${op}/${SPACE}/${key}`); if(!r.ok) throw new Error(r.status); return (await r.json()).value; };
+    const visits=await call(count?'hit':'get','visits');
+    const people=await call(count && !seen?'hit':'get','people');
+    if(count) store.set('seen',true);
+    const el=$('#visits'); el.textContent=`👁 ${visits} ${visits===1?'visit':'visits'} · ${people} ${people===1?'person':'people'}`; el.classList.remove('hidden');
+  }catch(e){ /* counter unavailable: show nothing */ }
+})();
+
+/* ---------------- init ---------------- */
+renderSound();
+setCode(store.get('code:'+task.id, EMPTY));
+renderAll();
+log('Welcome! Pick an experiment, wire it, write the code and press ➜ Upload (or Ctrl+Enter).','info');
+requestAnimationFrame(frame);
+window.__sim={sim, TASKS, selectTask, upload, compile, transpile, setCode, ledBrightness, getW, press, setPot, get task(){return task;}, checkWiring, correctWire, wiring};
+</script>
+</body>
+</html>
